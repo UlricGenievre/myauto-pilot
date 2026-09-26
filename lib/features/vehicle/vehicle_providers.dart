@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/vehicle.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_repository.dart';
+import '../demo/demo_data.dart';
 import 'vehicle_repository.dart';
 
 /// Repository lie a la session active. Se recree automatiquement quand la
@@ -15,6 +16,7 @@ import 'vehicle_repository.dart';
 /// faire pour en beneficier.
 final vehicleRepositoryProvider = Provider<VehicleRepository?>((ref) {
   final authState = ref.watch(authControllerProvider);
+  if (authState is AuthDemo) return DemoVehicleRepository();
   if (authState is! AuthAuthenticated) return null;
   return VehicleRepository(
     session: authState.session,
@@ -34,5 +36,10 @@ final vehiclesProvider = FutureProvider<List<Vehicle>>((ref) async {
 });
 
 /// Vehicule actuellement affiche dans l'app (choisi par l'utilisateur si le
-/// compte a plusieurs vehicules).
-final selectedVehicleProvider = StateProvider<Vehicle?>((ref) => null);
+/// compte a plusieurs vehicules). Remis a zero a chaque changement de nature
+/// de session (deconnexion, connexion, demonstration) : pas de vehicule d'un
+/// autre compte ou fictif qui resterait selectionne.
+final selectedVehicleProvider = StateProvider<Vehicle?>((ref) {
+  ref.watch(authControllerProvider.select((state) => state.runtimeType));
+  return null;
+});

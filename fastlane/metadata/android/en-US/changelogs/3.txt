@@ -1,4 +1,5 @@
 • After updating from 0.1.0, open the app once to reschedule sends.
+• Demo mode: try the app without a MyRenault account.
 • Exact-time wake-ups: the app asks for the Android "Alarms & reminders" permission and warns when it is missing.
 • Interface font bundled with the app (no download anymore).
 • App icon on Android 7.

@@ -33,6 +33,12 @@ class AuthAuthenticated extends AuthState {
   final AuthSession session;
 }
 
+/// Mode demonstration : vehicule fictif, aucun appel a Renault (cf.
+/// `features/demo/`). Non persiste : l'app redemarre sur l'ecran de connexion.
+class AuthDemo extends AuthState {
+  const AuthDemo();
+}
+
 class AuthUnauthenticated extends AuthState {
   const AuthUnauthenticated({this.error});
   final String? error;
@@ -88,8 +94,10 @@ class AuthController extends StateNotifier<AuthState> {
     return session;
   }
 
+  void startDemo() => state = const AuthDemo();
+
   Future<void> logout() async {
-    await _repository.logout();
+    if (state is! AuthDemo) await _repository.logout();
     state = const AuthUnauthenticated();
   }
 }
@@ -97,3 +105,5 @@ class AuthController extends StateNotifier<AuthState> {
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
   return AuthController(ref.watch(authRepositoryProvider));
 });
+
+final demoModeProvider = Provider<bool>((ref) => ref.watch(authControllerProvider) is AuthDemo);

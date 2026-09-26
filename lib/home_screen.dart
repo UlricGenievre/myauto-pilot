@@ -25,8 +25,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     // A l'ouverture : rattrape un envoi manque (reveil perdu, telephone
-    // eteint) et reprogramme les reveils du pilotage de charge.
-    refreshPilot(ref.invalidate);
+    // eteint) et reprogramme les reveils du pilotage de charge (jamais en
+    // demonstration : le pilote travaille sur le parametrage reel).
+    if (!ref.read(demoModeProvider)) refreshPilot(ref.invalidate);
   }
 
   static const _tabs = [
@@ -55,6 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final vehiclesAsync = ref.watch(vehiclesProvider);
     final tabIndex = ref.watch(homeTabProvider);
+    final demo = ref.watch(demoModeProvider);
 
     ref.listen(vehiclesProvider, (previous, next) {
       next.whenData((vehicles) {
@@ -89,6 +91,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           IconButton(
+            tooltip: demo ? 'Quitter la démonstration' : 'Se déconnecter',
             icon: const Icon(Icons.logout, color: AppColors.textSecondary),
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
@@ -96,6 +99,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: Column(
         children: [
+          if (demo) const _DemoBanner(),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Align(
@@ -124,6 +128,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.settings_remote_outlined),
             selectedIcon: Icon(Icons.settings_remote),
             label: 'Actions',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Rappel permanent du mode demonstration.
+class _DemoBanner extends StatelessWidget {
+  const _DemoBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accent),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.science_outlined, size: 18, color: AppColors.accent),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Démonstration : véhicule et données fictifs, rien n\'est envoyé.',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),

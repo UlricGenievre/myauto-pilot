@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../auth/auth_controller.dart';
 import '../schedule/schedule_providers.dart';
 import '../schedule/vehicle_schedule_cards.dart';
 import 'cards/auto_pilot_card.dart';
@@ -26,7 +27,7 @@ class PilotScreen extends ConsumerWidget {
       backgroundColor: AppColors.surfaceHigh,
       onRefresh: () async {
         ref.invalidate(vehicleScheduleProvider);
-        await refreshPilot(ref.invalidate);
+        if (!ref.read(demoModeProvider)) await refreshPilot(ref.invalidate);
       },
       child: asyncConfig.when(
         loading: () => const Center(child: CircularProgressIndicator()),

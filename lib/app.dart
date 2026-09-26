@@ -35,7 +35,7 @@ class MyAutoPilotApp extends ConsumerWidget {
       home: switch (disclaimerAccepted) {
         AsyncData(value: false) => const DisclaimerScreen(),
         AsyncData() => switch (authState) {
-            AuthAuthenticated() => const HomeScreen(),
+            AuthAuthenticated() || AuthDemo() => const HomeScreen(),
             AuthInitial() => const _SplashScreen(),
             AuthLoading() || AuthUnauthenticated() => const LoginScreen(),
           },

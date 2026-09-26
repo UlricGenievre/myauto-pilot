@@ -7,6 +7,7 @@ import '../../../core/models/vehicle_support.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_formatting.dart';
 import '../../../core/widgets/dashboard_card.dart';
+import '../../auth/auth_controller.dart';
 import '../../vehicle/vehicle_providers.dart';
 import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
@@ -28,7 +29,8 @@ class AutoPilotCard extends ConsumerWidget {
     ];
     final vehicle = ref.watch(selectedVehicleProvider);
     final support = VehicleSupport.of(vehicle?.modelCode ?? config.vehicleModelCode);
-    final canEnable = pilotSupported && missing.isEmpty && support.canWrite;
+    final demo = ref.watch(demoModeProvider);
+    final canEnable = pilotSupported && !demo && missing.isEmpty && support.canWrite;
     final lead = config.pushLeadMinutes;
     final leadText = lead % 60 == 0 ? '${lead ~/ 60} h' : '${lead ~/ 60} h ${(lead % 60).toString().padLeft(2, '0')}';
 
@@ -45,7 +47,9 @@ class AutoPilotCard extends ConsumerWidget {
             onChanged: canEnable || config.enabled ? (on) => _setEnabled(context, ref, on) : null,
             title: const Text('Envoyer les plages de charge automatiquement'),
             subtitle: Text(
-              !pilotSupported
+              demo
+                  ? 'Non disponible en démonstration : aucun envoi n\'est programmé.'
+                  : !pilotSupported
                   ? 'Disponible sur le téléphone uniquement (réveils et notifications Android).'
                   : !support.canWrite
                       ? 'Modèle de véhicule non pris en charge pour le pilotage.'

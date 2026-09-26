@@ -1,4 +1,5 @@
 • Après la mise à jour depuis la 0.1.0, ouvrez l'application une fois pour reprogrammer les envois.
+• Mode démonstration : découvrez l'application sans compte MyRenault.
 • Réveils à l'heure exacte : l'application demande l'autorisation Android « Alarmes et rappels » et signale si elle manque.
 • Police de l'interface intégrée à l'application (plus aucun téléchargement).
 • Icône de l'application sur Android 7.

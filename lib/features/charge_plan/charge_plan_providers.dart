@@ -7,8 +7,13 @@ import '../../background/pilot_runtime.dart';
 import '../../core/charge_plan/pilot_state.dart';
 import '../../core/models/charge_plan_config.dart';
 import '../../core/storage/charge_plan_storage.dart';
+import '../auth/auth_controller.dart';
+import '../demo/demo_data.dart';
 
-final chargePlanStorageProvider = Provider<ChargePlanStorage>((ref) => ChargePlanStorage());
+/// En demonstration : stockage en memoire, neuf a chaque entree.
+final chargePlanStorageProvider = Provider<ChargePlanStorage>(
+  (ref) => ref.watch(demoModeProvider) ? DemoChargePlanStorage() : ChargePlanStorage(),
+);
 
 /// Parametrage de charge, charge depuis le stockage au premier acces et
 /// sauvegarde a chaque modification.
@@ -17,7 +22,7 @@ final chargePlanConfigProvider =
 
 class ChargePlanConfigController extends AsyncNotifier<ChargePlanConfig> {
   @override
-  Future<ChargePlanConfig> build() => ref.read(chargePlanStorageProvider).load();
+  Future<ChargePlanConfig> build() => ref.watch(chargePlanStorageProvider).load();
 
   Timer? _tickDebounce;
 
@@ -30,6 +35,7 @@ class ChargePlanConfigController extends AsyncNotifier<ChargePlanConfig> {
     state = AsyncData(updated);
     await ref.read(chargePlanStorageProvider).save(updated);
     _tickDebounce?.cancel();
+    if (ref.read(demoModeProvider)) return;
     _tickDebounce = Timer(const Duration(seconds: 2), () => refreshPilot(ref.invalidate));
   }
 }
@@ -37,7 +43,7 @@ class ChargePlanConfigController extends AsyncNotifier<ChargePlanConfig> {
 /// Etat d'execution du pilotage (dernier envoi, confirmation en attente,
 /// prochain reveil), ecrit par les reveils en arriere-plan.
 final pilotStateProvider = FutureProvider.autoDispose<PilotState>(
-  (ref) => ref.read(chargePlanStorageProvider).loadState(),
+  (ref) => ref.watch(chargePlanStorageProvider).loadState(),
 );
 
 /// Autorisation Android "Alarmes et rappels" (reveils a l'heure exacte).

@@ -176,6 +176,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               )
                             : const Text('Se connecter'),
                       ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: isLoading ? null : () => ref.read(authControllerProvider.notifier).startDemo(),
+                        child: const Text('Découvrir sans compte (démonstration)'),
+                      ),
                     ],
                   ),
                 ),

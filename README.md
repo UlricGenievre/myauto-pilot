@@ -54,6 +54,10 @@ voiture, avant chaque plage, la plage de charge qui convient.
 3. Pour recevoir les mises à jour, vous pouvez suivre ce dépôt avec
    [Obtainium](https://github.com/ImranR98/Obtainium).
 
+Pour découvrir l'application sans compte, choisissez **Découvrir sans
+compte (démonstration)** sur l'écran de connexion : véhicule et données
+fictifs, rien n'est envoyé.
+
 Au premier lancement : lisez l'avertissement, choisissez le **pays** de
 votre compte MyRenault, connectez-vous, puis renseignez vos plages dans
 **Réglages** (roue dentée).

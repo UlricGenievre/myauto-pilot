@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/debug/dev_tools.dart';
 import '../../core/theme/app_theme.dart';
 import '../about/about_card.dart';
+import '../auth/auth_controller.dart';
 import '../auth/renault_keys_card.dart';
 import 'cards/agendas_card.dart';
 import 'cards/battery_card.dart';
@@ -43,8 +44,10 @@ class ChargePlanSettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               DedicatedProgramCard(config: config, controller: controller),
               const SizedBox(height: 16),
-              const RenaultKeysCard(),
-              const SizedBox(height: 16),
+              if (!ref.watch(demoModeProvider)) ...[
+                const RenaultKeysCard(),
+                const SizedBox(height: 16),
+              ],
               const AboutCard(),
               if (devToolsEnabled) ...[
                 const SizedBox(height: 16),

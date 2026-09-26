@@ -1,7 +1,9 @@
 # Changelog
 
-## Non publié
+## 0.1.1
 
+- Mode démonstration (« Découvrir sans compte ») : véhicule et données
+  fictifs, rien n'est envoyé à Renault.
 - Réveils à l'heure exacte via l'autorisation Android « Alarmes et rappels »
   (demandée à l'activation du pilotage, alerte si elle manque, réveils
   approximatifs en attendant). Mise à jour depuis la 0.1.0 : Android
