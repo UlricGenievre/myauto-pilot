@@ -1,0 +1,22 @@
+services:
+  flutter:
+    image: ghcr.io/cirruslabs/flutter:stable
+    working_dir: /app
+    volumes:
+      - .:/app
+      - pub-cache:/root/.pub-cache
+      # Persiste le keystore de debug Android : sans ca, chaque conteneur
+      # (jetable) genere une nouvelle cle de signature a chaque run, ce qui
+      # force adb a desinstaller/reinstaller l'app (et donc a effacer la
+      # session stockee) a chaque redeploiement.
+      - android-debug-keystore:/root/.android
+    # Partage le reseau de l'hote WSL pour que le client adb du conteneur
+    # atteigne le serveur adb natif (127.0.0.1:5037) qui gere le telephone
+    # branche en USB via usbipd-win.
+    network_mode: host
+    stdin_open: true
+    tty: true
+
+volumes:
+  pub-cache:
+  android-debug-keystore:

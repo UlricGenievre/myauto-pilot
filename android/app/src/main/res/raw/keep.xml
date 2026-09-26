@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L'icone de notification n'est referencee que par son nom depuis Dart
+     (flutter_local_notifications) : sans ceci, le build release la retire. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_charge" />
