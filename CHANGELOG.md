@@ -9,6 +9,9 @@
   approximatifs en attendant). Mise à jour depuis la 0.1.0 : Android
   supprime les envois programmés, ouvrez l'application une fois pour les
   reprogrammer.
+- Alerte dans « Pilotage automatique » si les notifications (ou leur canal)
+  sont désactivées, avec un bouton pour les réactiver : sans elles, le mode
+  sécurisé ne peut rien proposer.
 - Police Manrope intégrée à l'application : plus aucun appel à Google Fonts.
 - Icône de l'application sur Android 7 (icône Flutter par défaut jusqu'ici).
 - « À propos » : lien vers la politique de confidentialité, licences des

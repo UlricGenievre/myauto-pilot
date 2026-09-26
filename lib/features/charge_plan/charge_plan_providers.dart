@@ -46,7 +46,10 @@ final pilotStateProvider = FutureProvider.autoDispose<PilotState>(
   (ref) => ref.watch(chargePlanStorageProvider).loadState(),
 );
 
-/// Autorisation Android "Alarmes et rappels" (reveils a l'heure exacte).
+/// Autorisations Android dont depend le pilotage : notifications
+/// (confirmations du mode securise, resultats) et "Alarmes et rappels"
+/// (reveils a l'heure exacte).
+final notificationsAllowedProvider = FutureProvider.autoDispose<bool>((ref) => notificationsAllowed());
 final exactAlarmsAllowedProvider = FutureProvider.autoDispose<bool>((ref) => exactAlarmsAllowed());
 
 /// Passage du pilote depuis l'app, puis relecture de son etat.

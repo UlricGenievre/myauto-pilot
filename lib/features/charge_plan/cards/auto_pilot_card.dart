@@ -73,7 +73,7 @@ class AutoPilotCard extends ConsumerWidget {
             ),
           ),
           if (config.enabled && pilotSupported) ...[
-            const _ExactAlarmWarning(),
+            _PermissionWarnings(safeMode: config.effectiveSafeMode),
             const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider()),
             _PilotStatus(safeMode: config.effectiveSafeMode),
           ],
@@ -119,17 +119,20 @@ Future<void> _askExactAlarms(BuildContext context) async {
   if (open == true) await requestExactAlarms();
 }
 
-/// Alerte si les reveils exacts ne sont pas autorises. Reverifie au retour
-/// dans l'app (l'utilisateur a pu changer le reglage Android entre-temps) et
-/// reprogramme alors les reveils en exact.
-class _ExactAlarmWarning extends ConsumerStatefulWidget {
-  const _ExactAlarmWarning();
+/// Alertes si une autorisation Android dont depend le pilotage manque, avec
+/// un bouton pour la donner. Reverifie au retour dans l'app (l'utilisateur a
+/// pu changer les reglages Android entre-temps) ; reveils exacts retrouves :
+/// reprogrammation immediate.
+class _PermissionWarnings extends ConsumerStatefulWidget {
+  const _PermissionWarnings({required this.safeMode});
+
+  final bool safeMode;
 
   @override
-  ConsumerState<_ExactAlarmWarning> createState() => _ExactAlarmWarningState();
+  ConsumerState<_PermissionWarnings> createState() => _PermissionWarningsState();
 }
 
-class _ExactAlarmWarningState extends ConsumerState<_ExactAlarmWarning> {
+class _PermissionWarningsState extends ConsumerState<_PermissionWarnings> {
   late final AppLifecycleListener _lifecycle;
 
   @override
@@ -145,33 +148,54 @@ class _ExactAlarmWarningState extends ConsumerState<_ExactAlarmWarning> {
   }
 
   Future<void> _recheck() async {
-    final before = ref.read(exactAlarmsAllowedProvider).valueOrNull;
+    ref.invalidate(notificationsAllowedProvider);
+    final exactBefore = ref.read(exactAlarmsAllowedProvider).valueOrNull;
     ref.invalidate(exactAlarmsAllowedProvider);
-    final now = await ref.read(exactAlarmsAllowedProvider.future);
-    if (now && before == false) await refreshPilot(ref.invalidate);
+    final exactNow = await ref.read(exactAlarmsAllowedProvider.future);
+    if (exactNow && exactBefore == false) await refreshPilot(ref.invalidate);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (ref.watch(exactAlarmsAllowedProvider).valueOrNull != false) return const SizedBox.shrink();
+    final notifications = ref.watch(notificationsAllowedProvider).valueOrNull;
+    final exactAlarms = ref.watch(exactAlarmsAllowedProvider).valueOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (notifications == false)
+          _warning(
+            Icons.notifications_off_outlined,
+            widget.safeMode
+                ? 'Notifications désactivées : les plages à confirmer ne s\'affichent pas, rien ne sera envoyé.'
+                : 'Notifications désactivées : vous ne serez pas informé du résultat des envois.',
+            requestNotifications,
+          ),
+        if (exactAlarms == false)
+          _warning(
+            Icons.alarm_off_rounded,
+            'Réveils à l\'heure exacte non autorisés : les envois peuvent être retardés par Android.',
+            requestExactAlarms,
+          ),
+      ],
+    );
+  }
+
+  Widget _warning(IconData icon, String text, Future<bool> Function() request) {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.alarm_off_rounded, size: 18, color: AppColors.error),
+          Icon(icon, size: 18, color: AppColors.error),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Réveils à l\'heure exacte non autorisés : les envois peuvent être retardés par Android.',
-                  style: hintStyle,
-                ),
+                Text(text, style: hintStyle),
                 TextButton(
                   onPressed: () async {
-                    await requestExactAlarms();
+                    await request();
                     await _recheck();
                   },
                   style: TextButton.styleFrom(foregroundColor: AppColors.accent, padding: EdgeInsets.zero),

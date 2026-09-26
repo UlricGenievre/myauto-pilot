@@ -70,6 +70,29 @@ Future<bool> requestPilotPermissions() async {
   return await _androidNotifications?.requestNotificationsPermission() ?? false;
 }
 
+/// Notifications autorisees pour l'app **et** pour son canal (l'utilisateur
+/// peut couper l'un ou l'autre dans les reglages Android).
+Future<bool> notificationsAllowed() async {
+  if (!pilotSupported) return false;
+  final android = _androidNotifications;
+  if (android == null || await android.areNotificationsEnabled() != true) return false;
+  final channels = await android.getNotificationChannels() ?? const [];
+  for (final channel in channels) {
+    if (channel.id == _channel.id) return channel.importance != Importance.none;
+  }
+  return true;
+}
+
+/// Redemande l'autorisation ; si Android ne l'affiche plus (refus
+/// repetes) ou si c'est le canal qui est coupe, ouvre les reglages de
+/// notification de l'app. Renvoie l'etat au retour.
+Future<bool> requestNotifications() async {
+  if (!pilotSupported) return false;
+  if (await requestPilotPermissions() && await notificationsAllowed()) return true;
+  await _androidNotifications?.openAppNotificationSettings();
+  return notificationsAllowed();
+}
+
 /// Autorisation "Alarmes et rappels" (`SCHEDULE_EXACT_ALARM`), a accorder
 /// par l'utilisateur depuis Android 14. Sans elle, les reveils sont
 /// approximatifs (Android peut les retarder).
