@@ -64,13 +64,29 @@ Future<void> ignorePilotCommand(String commandId) async {
   await _createPilot().ignore(commandId);
 }
 
-/// Autorisation d'afficher des notifications (Android 13+). Les reveils
-/// exacts utilisent `USE_EXACT_ALARM`, accordee d'office (cf. manifest).
+/// Autorisation d'afficher des notifications (Android 13+).
 Future<bool> requestPilotPermissions() async {
   if (!pilotSupported) return false;
-  final android = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-  return await android?.requestNotificationsPermission() ?? false;
+  return await _androidNotifications?.requestNotificationsPermission() ?? false;
 }
+
+/// Autorisation "Alarmes et rappels" (`SCHEDULE_EXACT_ALARM`), a accorder
+/// par l'utilisateur depuis Android 14. Sans elle, les reveils sont
+/// approximatifs (Android peut les retarder).
+Future<bool> exactAlarmsAllowed() async {
+  if (!pilotSupported) return false;
+  return await _androidNotifications?.canScheduleExactNotifications() ?? false;
+}
+
+/// Ouvre le reglage Android "Alarmes et rappels" de l'app ; renvoie
+/// l'autorisation au retour.
+Future<bool> requestExactAlarms() async {
+  if (!pilotSupported) return false;
+  return await _androidNotifications?.requestExactAlarmsPermission() ?? false;
+}
+
+AndroidFlutterLocalNotificationsPlugin? get _androidNotifications =>
+    _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
 
 /// Notification d'information (ex. cles Renault mises a jour).
 void showPilotInfo(String title, String body) {
@@ -126,9 +142,7 @@ Future<void> _initNotifications() async {
     onDidReceiveNotificationResponse: _handleResponse,
     onDidReceiveBackgroundNotificationResponse: pilotNotificationBackground,
   );
-  await _notifications
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(_channel);
+  await _androidNotifications?.createNotificationChannel(_channel);
 }
 
 ChargePilot _createPilot() => ChargePilot(
@@ -142,11 +156,13 @@ ChargePilot _createPilot() => ChargePilot(
 class _AndroidPilotPlatform implements PilotPlatform {
   @override
   Future<void> scheduleWake(PilotWake wake, DateTime at) async {
+    // Reveil exact refuse sans l'autorisation (SecurityException) : repli
+    // sur un reveil approximatif, signale dans l'ecran de pilotage.
     await AndroidAlarmManager.oneShotAt(
       at,
       wake.alarmId,
       pilotAlarmCallback,
-      exact: true,
+      exact: await exactAlarmsAllowed(),
       wakeup: true,
       allowWhileIdle: true,
       rescheduleOnReboot: true,

@@ -69,6 +69,7 @@ class AutoPilotCard extends ConsumerWidget {
             ),
           ),
           if (config.enabled && pilotSupported) ...[
+            const _ExactAlarmWarning(),
             const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider()),
             _PilotStatus(safeMode: config.effectiveSafeMode),
           ],
@@ -88,9 +89,96 @@ class AutoPilotCard extends ConsumerWidget {
           content: Text('Notifications refusées : le mode sécurisé ne pourra pas vous demander de confirmation.'),
         ));
       }
+      if (!await exactAlarmsAllowed() && context.mounted) await _askExactAlarms(context);
     }
     await controller.edit((c) => c.copyWith(enabled: on, vehicleVin: vin, vehicleModelCode: vehicle?.modelCode));
     await refreshPilot(ref.invalidate);
+  }
+}
+
+/// Explique puis ouvre le reglage Android "Alarmes et rappels".
+Future<void> _askExactAlarms(BuildContext context) async {
+  final open = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Envois à l\'heure exacte'),
+      content: const Text(
+        'Pour envoyer chaque plage à l\'heure prévue, même téléphone en veille, autorisez MyAuto Pilot dans '
+        'le réglage Android « Alarmes et rappels ». Sans cette autorisation, les envois peuvent être retardés.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Plus tard')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ouvrir le réglage')),
+      ],
+    ),
+  );
+  if (open == true) await requestExactAlarms();
+}
+
+/// Alerte si les reveils exacts ne sont pas autorises. Reverifie au retour
+/// dans l'app (l'utilisateur a pu changer le reglage Android entre-temps) et
+/// reprogramme alors les reveils en exact.
+class _ExactAlarmWarning extends ConsumerStatefulWidget {
+  const _ExactAlarmWarning();
+
+  @override
+  ConsumerState<_ExactAlarmWarning> createState() => _ExactAlarmWarningState();
+}
+
+class _ExactAlarmWarningState extends ConsumerState<_ExactAlarmWarning> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: _recheck);
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _recheck() async {
+    final before = ref.read(exactAlarmsAllowedProvider).valueOrNull;
+    ref.invalidate(exactAlarmsAllowedProvider);
+    final now = await ref.read(exactAlarmsAllowedProvider.future);
+    if (now && before == false) await refreshPilot(ref.invalidate);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (ref.watch(exactAlarmsAllowedProvider).valueOrNull != false) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.alarm_off_rounded, size: 18, color: AppColors.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Réveils à l\'heure exacte non autorisés : les envois peuvent être retardés par Android.',
+                  style: hintStyle,
+                ),
+                TextButton(
+                  onPressed: () async {
+                    await requestExactAlarms();
+                    await _recheck();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: AppColors.accent, padding: EdgeInsets.zero),
+                  child: const Text('Autoriser'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

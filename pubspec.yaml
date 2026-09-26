@@ -52,10 +52,6 @@ dependencies:
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
 
-  # Police geometrique (Manrope) pour un rendu plus premium que la police
-  # systeme par defaut, dans l'esprit des apps constructeur haut de gamme.
-  google_fonts: ^6.2.1
-
   # Formatage de dates adapte a la locale de l'appareil (intl) et affichage
   # relatif "il y a X min" (timeago) pour la derniere position connue.
   intl: ^0.20.2
@@ -85,6 +81,23 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Police geometrique Manrope (licence OFL, assets/fonts/OFL.txt), embarquee
+  # dans l'app : aucun telechargement au lancement.
+  assets:
+    - assets/fonts/OFL.txt
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Regular.ttf
+        - asset: assets/fonts/Manrope-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope-ExtraBold.ttf
+          weight: 800
 
   # To add assets to your application, add an assets section, like this:
   # assets:

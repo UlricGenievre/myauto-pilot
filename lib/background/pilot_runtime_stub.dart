@@ -13,4 +13,8 @@ Future<void> ignorePilotCommand(String commandId) async {}
 
 Future<bool> requestPilotPermissions() async => false;
 
+Future<bool> exactAlarmsAllowed() async => false;
+
+Future<bool> requestExactAlarms() async => false;
+
 void showPilotInfo(String title, String body) {}

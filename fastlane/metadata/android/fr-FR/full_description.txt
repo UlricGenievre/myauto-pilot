@@ -1,0 +1,22 @@
+L'application MyRenault ne propose qu'une seule plage de charge, identique tous les jours. Or beaucoup de contrats heures creuses ont plusieurs plages par jour, ou des journées entières en heures creuses.
+
+MyAuto Pilot garde votre vrai calendrier dans le téléphone et envoie à la voiture, avant chaque plage, la plage de charge qui convient.
+
+<b>Fonctionnalités</b>
+• Plages d'heures creuses par jour de la semaine, et journées entièrement en heures creuses.
+• Objectifs « prête à X % à telle heure » : agendas récurrents (« Habituel », « Vacances »…) et objectif exceptionnel. Si une plage ne suffit pas, elle est élargie juste ce qu'il faut.
+• Envoi automatique de la plage à la voiture avant son début, à l'heure exacte, même application fermée.
+• Mode sécurisé (activé par défaut) : chaque envoi vous est proposé par notification et n'est fait qu'après votre confirmation.
+• Tableau de bord : batterie, autonomie, position, climatisation et charge à distance.
+
+<b>Compatibilité</b>
+Véhicules électriques Renault récents gérés par l'application MyRenault (Rafale, Renault 5 et 4 E-Tech, Alpine A290, Master E-Tech…). Les autres modèles restent consultables en lecture seule. Un compte MyRenault est nécessaire.
+
+<b>Confidentialité</b>
+Vos identifiants MyRenault ne sont jamais enregistrés. Vos réglages restent sur votre téléphone : aucun serveur MyAuto Pilot, aucune statistique, aucune publicité.
+
+<b>Logiciel libre</b>
+Code source sous licence GPL-3.0 : https://github.com/UlricGenievre/myauto-pilot
+
+<b>Avertissement</b>
+MyAuto Pilot est une application indépendante, ni affiliée à Renault ni approuvée par Renault. « Renault », « MyRenault » et les noms de modèles sont des marques de leurs propriétaires, cités uniquement pour indiquer la compatibilité. L'application utilise l'accès non documenté de MyRenault, que Renault peut modifier ou couper à tout moment.

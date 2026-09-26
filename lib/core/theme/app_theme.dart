@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Palette et theme sombre "cockpit" : fond quasi noir, cartes en gris
 /// anthracite, un seul accent (jaune Renault) reserve aux elements
@@ -22,8 +21,9 @@ abstract final class AppColors {
 
 abstract final class AppTheme {
   static ThemeData get dark {
-    final textTheme = GoogleFonts.manropeTextTheme(ThemeData.dark().textTheme)
-        .apply(bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary);
+    final textTheme = ThemeData.dark()
+        .textTheme
+        .apply(fontFamily: 'Manrope', bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary);
 
     final colorScheme = const ColorScheme.dark(
       brightness: Brightness.dark,
@@ -43,7 +43,7 @@ abstract final class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
       textTheme: textTheme,
-      fontFamily: textTheme.bodyMedium?.fontFamily,
+      fontFamily: 'Manrope',
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,

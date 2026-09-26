@@ -8,10 +8,15 @@ plugins {
 }
 
 // Cle de signature des APK distribues : android/key.properties (+ le
-// keystore qu'il designe), hors du depot. Absente (autre machine) : les
-// builds release sont signes avec la cle de debug.
+// keystore qu'il designe), hors du depot. Les bundles pour Google Play
+// (`build appbundle`) sont signes avec la cle d'upload,
+// android/upload.properties, si elle existe (Play re-signe ensuite avec la
+// cle de l'app). Aucune cle (autre machine) : cle de debug.
+val isBundleBuild = gradle.startParameter.taskNames.any { it.contains("bundle", ignoreCase = true) }
+val uploadPropertiesFile = rootProject.file("upload.properties")
 val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
+val keystorePropertiesFile =
+    if (isBundleBuild && uploadPropertiesFile.exists()) uploadPropertiesFile else rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }

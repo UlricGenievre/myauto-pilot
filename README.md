@@ -59,8 +59,10 @@ votre compte MyRenault, connectez-vous, puis renseignez vos plages dans
 **Réglages** (roue dentée).
 
 **Autorisations demandées** : notifications (confirmations et résultats des
-envois), réveils à l'heure exacte (envoi des plages), démarrage automatique
-(reprogrammation après un redémarrage du téléphone).
+envois), « Alarmes et rappels » (envoi des plages à l'heure exacte, à
+autoriser dans le réglage Android que l'application ouvre à l'activation du
+pilotage), démarrage automatique (reprogrammation après un redémarrage du
+téléphone).
 
 ## Compatibilité
 
@@ -89,9 +91,9 @@ Pilotage.
   - les **serveurs Renault** (données et réglages du véhicule) ;
   - **GitHub** (clés d'accès publiées par le projet
     [renault-api](https://github.com/hacf-fr/renault-api)) ;
-  - **Google Fonts** (police de l'interface, téléchargée au premier
-    lancement) ;
   - **OpenStreetMap** (fonds de carte de l'onglet Localisation).
+
+Détail : [politique de confidentialité](PRIVACY.md).
 
 ## Avertissement
 

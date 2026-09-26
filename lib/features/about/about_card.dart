@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/dashboard_card.dart';
 import '../charge_plan/charge_plan_pickers.dart';
 import 'disclaimer.dart';
@@ -13,6 +14,7 @@ class AboutCard extends ConsumerWidget {
   const AboutCard({super.key});
 
   static const sourceUrl = 'https://github.com/UlricGenievre/myauto-pilot';
+  static const privacyUrl = '$sourceUrl/blob/main/PRIVACY.md';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,7 +34,19 @@ class AboutCard extends ConsumerWidget {
             'Accès aux services Renault d\'après le projet communautaire renault-api (hacf-fr/renault-api).',
             style: hintStyle,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
+          const Text('Politique de confidentialité :', style: hintStyle),
+          const SelectableText(privacyUrl, style: hintStyle),
+          TextButton.icon(
+            icon: const Icon(Icons.description_outlined, color: AppColors.accent),
+            label: const Text('Licences des composants'),
+            onPressed: () => showLicensePage(
+              context: context,
+              applicationName: 'MyAuto Pilot',
+              applicationVersion: version,
+            ),
+          ),
+          const SizedBox(height: 8),
           const DisclaimerPoints(),
         ],
       ),

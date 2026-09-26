@@ -1,0 +1,24 @@
+The MyRenault app only allows a single charging window, identical every day. Many off-peak electricity plans have several windows per day, or whole off-peak days.
+
+MyAuto Pilot keeps your real off-peak calendar on the phone and sends the right charging window to the car shortly before each off-peak period.
+
+<b>Features</b>
+• Off-peak windows per weekday, and whole off-peak days.
+• "Ready by" targets (e.g. 80 % on Monday at 7:30): recurring schedules and one-off targets. A window that is too short is extended just enough.
+• Automatic sending of the window to the car, at the exact time, even when the app is closed.
+• Safe mode (on by default): each send is offered as a notification and only happens after you confirm.
+• Dashboard: battery, range, location, remote climate control and charging.
+
+<b>Language</b>: the interface is in French only for now.
+
+<b>Compatibility</b>
+Recent Renault electric vehicles managed by the MyRenault app (Rafale, Renault 5 and 4 E-Tech, Alpine A290, Master E-Tech…). Other models are read-only. A MyRenault account is required.
+
+<b>Privacy</b>
+Your MyRenault credentials are never stored. Your settings stay on your phone: no MyAuto Pilot server, no analytics, no ads.
+
+<b>Free software</b>
+Source code under GPL-3.0: https://github.com/UlricGenievre/myauto-pilot
+
+<b>Disclaimer</b>
+MyAuto Pilot is independent, neither affiliated with nor endorsed by Renault. "Renault", "MyRenault" and model names are trademarks of their owners, mentioned only to indicate compatibility. The app uses the undocumented MyRenault access, which Renault may change or shut down at any time.

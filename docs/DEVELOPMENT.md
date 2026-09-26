@@ -93,3 +93,16 @@ Pour construire l'APK de release :
 Signature : si `android/key.properties` (et le keystore qu'il designe)
 existe, l'APK est signe avec cette cle ; sinon avec la cle de debug. Ces
 fichiers ne sont jamais versionnes.
+
+Pour Google Play, construire un bundle (AAB) :
+
+```bash
+./scripts/flutter.sh build appbundle --release
+# -> build/app/outputs/bundle/release/app-release.aab
+```
+
+Il est signe avec la cle d'upload decrite par `android/upload.properties`
+(meme format que `key.properties`) si ce fichier existe, sinon comme l'APK.
+Google Play re-signe les bundles avec la cle de l'app, la meme que celle des
+APK publies sur GitHub : un utilisateur peut passer d'un canal a l'autre
+sans reinstaller.

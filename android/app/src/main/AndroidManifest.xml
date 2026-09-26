@@ -1,11 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Pilotage de charge (cf. lib/background/) : notifications, reveils a
-         l'heure exacte (USE_EXACT_ALARM, accordee d'office depuis Android 13 ;
-         app installee hors Play Store), reprogrammation au redemarrage. -->
+         l'heure exacte, reprogrammation au redemarrage. SCHEDULE_EXACT_ALARM
+         ("Alarmes et rappels") est a autoriser par l'utilisateur depuis
+         Android 14 : l'app le verifie et le demande (USE_EXACT_ALARM,
+         accordee d'office, est reservee par Google Play aux applis de
+         reveil/agenda). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application

@@ -40,6 +40,9 @@ final pilotStateProvider = FutureProvider.autoDispose<PilotState>(
   (ref) => ref.read(chargePlanStorageProvider).loadState(),
 );
 
+/// Autorisation Android "Alarmes et rappels" (reveils a l'heure exacte).
+final exactAlarmsAllowedProvider = FutureProvider.autoDispose<bool>((ref) => exactAlarmsAllowed());
+
 /// Passage du pilote depuis l'app, puis relecture de son etat.
 /// [invalidate] : `ref.invalidate` d'un `Ref` ou d'un `WidgetRef`.
 Future<void> refreshPilot(void Function(ProviderOrFamily provider) invalidate) async {
