@@ -71,7 +71,10 @@ class AgendasCard extends StatelessWidget {
     if (agenda.targets.isEmpty) return 'Aucun objectif';
     final days = agenda.targets.keys.toList()..sort();
     return days
-        .map((d) => '${dayName(d).substring(0, 3)}. ${agenda.targets[d]!.targetPercent} % ${agenda.targets[d]!.readyAt.format()}')
+        .map((d) {
+          final t = agenda.targets[d]!;
+          return '${dayName(d).substring(0, 3)}. ${t.targetPercent} % ${t.readyAt.format()}${t.climate ? ' clim ${t.climateTemperature}°' : ''}';
+        })
         .join(' · ');
   }
 }

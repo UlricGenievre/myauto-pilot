@@ -25,7 +25,7 @@ class OneOffCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isActive) ...[
-            Text('Prête ${formatDayTime(oneOff.readyAt)} à ${oneOff.targetPercent} %',
+            Text('Prête ${formatDayTime(oneOff.readyAt)} à ${oneOff.targetPercent} %${oneOff.climate ? ', climatisée à ${oneOff.climateTemperature} °C' : ''}',
                 style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             const Text('Remplace l\'objectif de l\'agenda ce jour-là, puis s\'efface.', style: hintStyle),
@@ -85,6 +85,8 @@ class _OneOffDialogState extends State<_OneOffDialog> {
       ? ClockTime.hm(widget.initial!.readyAt.hour, widget.initial!.readyAt.minute)
       : ClockTime.hm(7, 0);
   late int _percent = widget.initial?.targetPercent ?? 100;
+  late bool _climate = widget.initial?.climate ?? false;
+  late int _temperature = widget.initial?.climateTemperature ?? defaultClimateTemperature;
 
   DateTime get _readyAt => _time.onDay(DateTime(_today.year, _today.month, _today.day + _dayOffset));
 
@@ -125,6 +127,14 @@ class _OneOffDialogState extends State<_OneOffDialog> {
           ),
           const SizedBox(height: 8),
           PercentSlider(value: _percent, onChanged: (p) => setState(() => _percent = p)),
+          ClimateSelector(
+            climate: _climate,
+            temperature: _temperature,
+            onChanged: (on, temperature) => setState(() {
+              _climate = on;
+              _temperature = temperature;
+            }),
+          ),
           if (!valid) Text('Cette heure est déjà passée.', style: hintStyle.copyWith(color: AppColors.error)),
         ],
       ),
@@ -132,7 +142,12 @@ class _OneOffDialogState extends State<_OneOffDialog> {
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
         TextButton(
           onPressed: valid
-              ? () => Navigator.of(context).pop(OneOffTarget(targetPercent: _percent, readyAt: _readyAt))
+              ? () => Navigator.of(context).pop(OneOffTarget(
+                    targetPercent: _percent,
+                    readyAt: _readyAt,
+                    climate: _climate,
+                    climateTemperature: _temperature,
+                  ))
               : null,
           child: const Text('OK'),
         ),

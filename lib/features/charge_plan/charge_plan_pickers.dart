@@ -159,3 +159,54 @@ class WeekDaySelector extends StatelessWidget {
     );
   }
 }
+
+/// Climatisation d'un objectif : pastille "Climatisation" (habitacle
+/// climatise a l'heure "prete a", programme de la voiture en charge +
+/// preclimatisation) et, cochee, sa temperature.
+class ClimateSelector extends StatelessWidget {
+  const ClimateSelector({
+    super.key,
+    required this.climate,
+    required this.temperature,
+    required this.onChanged,
+  });
+
+  final bool climate;
+  final int temperature;
+  final void Function(bool climate, int temperature) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        FilterChip(
+          avatar: Icon(Icons.ac_unit_rounded, size: 16, color: climate ? AppColors.onAccent : AppColors.textSecondary),
+          label: const Text('Climatisation'),
+          selected: climate,
+          showCheckmark: false,
+          selectedColor: AppColors.accent,
+          labelStyle: TextStyle(
+            color: climate ? AppColors.onAccent : AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+          onSelected: (on) => onChanged(on, temperature),
+        ),
+        if (climate) ...[
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Moins chaud',
+            icon: const Icon(Icons.remove_rounded),
+            onPressed: temperature > minClimateTemperature ? () => onChanged(true, temperature - 1) : null,
+          ),
+          Text('$temperature °C', style: const TextStyle(fontWeight: FontWeight.w700)),
+          IconButton(
+            tooltip: 'Plus chaud',
+            icon: const Icon(Icons.add_rounded),
+            onPressed: temperature < maxClimateTemperature ? () => onChanged(true, temperature + 1) : null,
+          ),
+        ],
+      ],
+    );
+  }
+}

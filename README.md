@@ -25,13 +25,15 @@ voiture, avant chaque plage, la plage de charge qui convient.
   les jours concernés, et journées entièrement en heures creuses.
 - **Objectifs « prête à X % à telle heure »** : agendas récurrents
   (« Habituel », « Vacances »…) et objectif exceptionnel (« demain 7 h à
-  100 % »). Si une plage ne suffit pas, elle est élargie juste ce qu'il faut.
+  100 % »), avec habitacle climatisé en option. Si une plage ne suffit pas,
+  elle est élargie juste ce qu'il faut.
 - **Envoi automatique** de la plage à la voiture avant son début (délai
   réglable), à l'heure exacte, même application fermée.
 - **Mode sécurisé** (activé par défaut) : chaque envoi vous est proposé par
   notification et n'est fait qu'après votre confirmation.
-- Tableau de bord : batterie, autonomie, position, climatisation et charge
-  à distance.
+- Tableau de bord : batterie, branchement et état de charge, autonomie
+  (et carburant des hybrides rechargeables), position, climatisation et
+  charge à distance, klaxon et phares.
 
 ## Aperçu
 

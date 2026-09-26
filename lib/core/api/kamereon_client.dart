@@ -7,6 +7,7 @@ import 'api_config.dart';
 import 'api_exception.dart';
 import '../models/battery_status.dart';
 import '../models/cockpit.dart';
+import '../models/hvac_status.dart';
 import '../models/vehicle.dart';
 import '../models/vehicle_location.dart';
 import '../models/vehicle_schedule.dart';
@@ -19,7 +20,7 @@ import '../models/vehicle_schedule.dart';
 /// `renault-api`, ou l'endpoint `lock-status` est systematiquement absent
 /// ou non supporte selon les vehicules). MyRenault ne l'expose pas non
 /// plus dans son app.
-enum VehicleAction { hvacStart, hvacStop, chargeStart, chargePause }
+enum VehicleAction { hvacStart, hvacStop, chargeStart, chargePause, horn, lights }
 
 /// Client pour l'API Kamereon (donnees + actions vehicule), authentifie via
 /// le JWT Gigya passe en header `x-gigya-id_token`.
@@ -176,6 +177,15 @@ class KamereonClient {
     return Cockpit.fromJson(data['data'] as Map<String, dynamic>? ?? const {});
   }
 
+  Future<HvacStatus> fetchHvacStatus({
+    required String jwt,
+    required String accountId,
+    required String vin,
+  }) async {
+    final data = await _get(_carAdapterPath(accountId, vin, 'hvac-status'), jwt: jwt);
+    return HvacStatus.fromJson(data['data'] as Map<String, dynamic>? ?? const {});
+  }
+
   Future<VehicleLocation> fetchLocation({
     required String jwt,
     required String accountId,
@@ -241,15 +251,13 @@ class KamereonClient {
     required String vin,
     required VehicleAction action,
   }) async {
-    final path = _carAdapterPath(accountId, vin, 'actions/${_actionEndpoint(action)}');
+    final (endpoint, type, attributes) = _actionPayload(action);
+    final path = _carAdapterPath(accountId, vin, 'actions/$endpoint');
     try {
       await _dio.post<dynamic>(
         path,
         data: {
-          'data': {
-            'type': _actionType(action),
-            'attributes': {'action': _actionAttribute(action)},
-          },
+          'data': {'type': type, 'attributes': attributes},
         },
         options: _authHeaders(jwt),
       );
@@ -264,40 +272,16 @@ class KamereonClient {
   String _carAdapterPath(String accountId, String vin, String suffix, {int version = 1}) =>
       '/commerce/v1/accounts/$accountId/kamereon/kca/car-adapter/v$version/cars/$vin/$suffix';
 
-  String _actionEndpoint(VehicleAction action) {
-    switch (action) {
-      case VehicleAction.hvacStart:
-      case VehicleAction.hvacStop:
-        return 'hvac-start';
-      case VehicleAction.chargeStart:
-      case VehicleAction.chargePause:
-        return 'charging-start';
-    }
-  }
-
-  String _actionType(VehicleAction action) {
-    switch (action) {
-      case VehicleAction.hvacStart:
-      case VehicleAction.hvacStop:
-        return 'HvacStart';
-      case VehicleAction.chargeStart:
-      case VehicleAction.chargePause:
-        return 'ChargingStart';
-    }
-  }
-
-  String _actionAttribute(VehicleAction action) {
-    switch (action) {
-      case VehicleAction.hvacStart:
-        return 'start';
-      case VehicleAction.hvacStop:
-        return 'stop';
-      case VehicleAction.chargeStart:
-        return 'start';
-      case VehicleAction.chargePause:
-        return 'stop';
-    }
-  }
+  /// Chemin (sous `actions/`), type et attributs de chaque action, d'apres
+  /// `renault_vehicle.py` de `renault-api`.
+  (String, String, Map<String, String>) _actionPayload(VehicleAction action) => switch (action) {
+        VehicleAction.hvacStart => ('hvac-start', 'HvacStart', {'action': 'start'}),
+        VehicleAction.hvacStop => ('hvac-start', 'HvacStart', {'action': 'stop'}),
+        VehicleAction.chargeStart => ('charging-start', 'ChargingStart', {'action': 'start'}),
+        VehicleAction.chargePause => ('charging-start', 'ChargingStart', {'action': 'stop'}),
+        VehicleAction.horn => ('horn-lights', 'HornLights', {'action': 'start', 'target': 'horn'}),
+        VehicleAction.lights => ('horn-lights', 'HornLights', {'action': 'start', 'target': 'lights'}),
+      };
 
   /// GET sur l'API Kamereon, renvoie le corps JSON decode en Map.
   ///

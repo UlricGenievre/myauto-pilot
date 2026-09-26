@@ -70,6 +70,7 @@ class PilotSummaryCard extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
             'Objectif : ${target.targetPercent} % ${formatDayTime(target.readyAt)}'
+            '${target.climate ? ', climatisée à ${target.climateTemperature} °C' : ''}'
             '${target.isOneOff ? ' (exceptionnel)' : ''}',
           ),
         ],

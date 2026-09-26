@@ -52,12 +52,11 @@ class _BatteryCardState extends ConsumerState<BatteryCard> {
         _capacity.text = _format(capacity);
         messages.add('capacité $capacity kWh');
       }
-      if (battery?.chargingInstantaneousPower case final raw? when raw > 0) {
+      if (battery?.chargingPowerKw case final kw?) {
         // Unite non confirmee (kW le plus souvent, W sur certaines
-        // passerelles) : au-dela de 100, c'est forcement des W.
-        final kw = raw > 100 ? raw / 1000 : raw;
+        // passerelles) : cf. BatteryStatus.chargingPowerKw.
         _power.text = _format(double.parse(kw.toStringAsFixed(1)));
-        messages.add('puissance $raw brute → ${_power.text} kW');
+        messages.add('puissance ${battery!.chargingInstantaneousPower} brute → ${_power.text} kW');
       }
       _save();
       messenger.showSnackBar(SnackBar(

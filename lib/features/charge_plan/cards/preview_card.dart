@@ -68,7 +68,8 @@ class _CommandSummary extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           'Prête à ${formatDayTime(command.readyAt)}'
-          '${target != null ? ' · objectif ${target.targetPercent} %${target.isOneOff ? ' (exceptionnel)' : ''}' : ''}',
+          '${target != null ? ' · objectif ${target.targetPercent} %${target.isOneOff ? ' (exceptionnel)' : ''}' : ''}'
+          '${command.climate ? ' · climatisée à ${command.climateTemperature} °C' : ''}',
         ),
         const SizedBox(height: 2),
         Text('Envoi ${formatDayTime(command.pushAt)}', style: hintStyle),

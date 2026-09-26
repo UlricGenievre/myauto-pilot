@@ -105,6 +105,9 @@ class VehicleSchedule {
   /// appliquee.
   String? get lastUpdate => raw['lastSettingsUpdateTimestamp'] as String?;
 
+  /// Temperature de preclimatisation (°C), commune a tous les programmes.
+  num? get preconditioningTemperature => raw['preconditioningTemperature'] as num?;
+
   factory VehicleSchedule.fromJson(Map<String, dynamic> json) {
     final programs = json['programs'] as List<dynamic>? ?? const [];
     return VehicleSchedule(
@@ -121,20 +124,26 @@ class VehicleSchedule {
   ///
   /// - [chargeTimeStart] : "HH:MM" (format de `chargeTimeStart`).
   /// - [chargeDurationMinutes] : 1440 pour une plage 00:00 -> 00:00.
+  /// - [preconditioningTemperature] : temperature d'habitacle (°C), commune
+  ///   a tous les programmes.
   /// - [programIndex] + [departureTime] ("HH:MM", converti en "HH:MM:SS"
-  ///   comme renvoye par l'API) / [programActive] / [programDays] : programme
-  ///   a modifier (index dans `programs[]`, pas d'identifiant cote API).
+  ///   comme renvoye par l'API) / [programActive] / [programDays] /
+  ///   [programKind] (charge seule ou avec preclimatisation) : programme a
+  ///   modifier (index dans `programs[]`, pas d'identifiant cote API).
   Map<String, dynamic> toUpdatedJson({
     String? chargeTimeStart,
     int? chargeDurationMinutes,
+    num? preconditioningTemperature,
     int? programIndex,
     String? departureTime,
     bool? programActive,
     Set<int>? programDays,
+    ProgramKind? programKind,
   }) {
     final json = jsonDecode(jsonEncode(raw)) as Map<String, dynamic>;
     if (chargeTimeStart != null) json['chargeTimeStart'] = chargeTimeStart;
     if (chargeDurationMinutes != null) json['chargeDuration'] = chargeDurationMinutes;
+    if (preconditioningTemperature != null) json['preconditioningTemperature'] = preconditioningTemperature;
 
     if (programIndex != null) {
       final programs = json['programs'] as List<dynamic>? ?? const [];
@@ -146,6 +155,13 @@ class VehicleSchedule {
         program['programDepartureTime'] = departureTime.length == 5 ? '$departureTime:00' : departureTime;
       }
       if (programActive != null) program['programActivationStatus'] = programActive;
+      if (programKind != null && programKind != ProgramKind.unknown) {
+        program['programType'] = switch (programKind) {
+          ProgramKind.charge || ProgramKind.unknown => 'CHARGE',
+          ProgramKind.preconditioning => 'PRECONDITIONING',
+          ProgramKind.chargeAndPreconditioning => 'CHARGE_AND_PRECONDITIONING',
+        };
+      }
       if (programDays != null) {
         for (final entry in _dayFields.entries) {
           program[entry.value] = programDays.contains(entry.key);

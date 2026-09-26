@@ -11,6 +11,8 @@ class CommandMark {
     this.windowStart,
     this.durationMinutes,
     this.readyAt,
+    this.climate = false,
+    this.climateTemperature,
   });
 
   CommandMark.of(ChargeCommand command, String configFingerprint)
@@ -21,6 +23,8 @@ class CommandMark {
           windowStart: command.windowStart,
           durationMinutes: command.durationMinutes,
           readyAt: command.readyAt,
+          climate: command.climate,
+          climateTemperature: command.climateTemperature,
         );
 
   final String id;
@@ -32,6 +36,8 @@ class CommandMark {
   final DateTime? windowStart;
   final int? durationMinutes;
   final DateTime? readyAt;
+  final bool climate;
+  final int? climateTemperature;
 
   bool get hasContent => windowStart != null && durationMinutes != null && readyAt != null;
 
@@ -44,6 +50,8 @@ class CommandMark {
           windowStart: windowStart!,
           durationMinutes: durationMinutes!,
           readyAt: readyAt!,
+          climate: climate,
+          climateTemperature: climateTemperature,
         )
       : null;
 
@@ -62,6 +70,8 @@ class CommandMark {
         'windowStart': windowStart?.toIso8601String(),
         'durationMinutes': durationMinutes,
         'readyAt': readyAt?.toIso8601String(),
+        if (climate) 'climate': true,
+        if (climateTemperature != null) 'climateTemperature': climateTemperature,
       };
 
   static CommandMark? fromJson(Object? json) {
@@ -75,6 +85,8 @@ class CommandMark {
       windowStart: DateTime.tryParse(json['windowStart'] as String? ?? ''),
       durationMinutes: json['durationMinutes'] as int?,
       readyAt: DateTime.tryParse(json['readyAt'] as String? ?? ''),
+      climate: json['climate'] as bool? ?? false,
+      climateTemperature: json['climateTemperature'] as int?,
     );
   }
 }

@@ -124,18 +124,53 @@ class ChargeCalendar {
       );
 }
 
-/// Objectif recurrent : "pret a [targetPercent] % a [readyAt]".
+/// Temperature d'habitacle d'un objectif climatise (°C) : plage proposee
+/// et valeur par defaut (celle de MyRenault).
+const minClimateTemperature = 16;
+const maxClimateTemperature = 26;
+const defaultClimateTemperature = 21;
+
+/// Objectif recurrent : "pret a [targetPercent] % a [readyAt]", habitacle
+/// climatise a [climateTemperature] °C a cette heure si [climate].
+///
+/// La climatisation n'apparait dans le JSON que si elle est active :
+/// l'empreinte des parametrages sans climatisation reste celle d'avant
+/// l'option.
 class ReadyTarget {
-  const ReadyTarget({required this.targetPercent, required this.readyAt});
+  const ReadyTarget({
+    required this.targetPercent,
+    required this.readyAt,
+    this.climate = false,
+    this.climateTemperature = defaultClimateTemperature,
+  });
 
   final int targetPercent;
   final ClockTime readyAt;
+  final bool climate;
 
-  Map<String, dynamic> toJson() => {'targetPercent': targetPercent, 'readyAt': readyAt.format()};
+  /// Ecrite dans la voiture avec la plage qui sert cet objectif (reglage
+  /// unique de la voiture, reecrit a chaque envoi).
+  final int climateTemperature;
+
+  ReadyTarget copyWith({int? targetPercent, ClockTime? readyAt, bool? climate, int? climateTemperature}) =>
+      ReadyTarget(
+        targetPercent: targetPercent ?? this.targetPercent,
+        readyAt: readyAt ?? this.readyAt,
+        climate: climate ?? this.climate,
+        climateTemperature: climateTemperature ?? this.climateTemperature,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'targetPercent': targetPercent,
+        'readyAt': readyAt.format(),
+        if (climate) ...{'climate': true, 'climateTemperature': climateTemperature},
+      };
 
   factory ReadyTarget.fromJson(Map<String, dynamic> json) => ReadyTarget(
         targetPercent: json['targetPercent'] as int? ?? 80,
         readyAt: ClockTime.tryParse(json['readyAt'] as String?) ?? ClockTime.hm(7, 0),
+        climate: json['climate'] as bool? ?? false,
+        climateTemperature: json['climateTemperature'] as int? ?? defaultClimateTemperature,
       );
 }
 
@@ -170,16 +205,31 @@ class TargetAgenda {
 /// Objectif exceptionnel ("demain 7h a 100 %") : prioritaire sur l'agenda
 /// ce jour-la, ignore une fois l'echeance passee.
 class OneOffTarget {
-  const OneOffTarget({required this.targetPercent, required this.readyAt});
+  const OneOffTarget({
+    required this.targetPercent,
+    required this.readyAt,
+    this.climate = false,
+    this.climateTemperature = defaultClimateTemperature,
+  });
 
   final int targetPercent;
   final DateTime readyAt;
 
-  Map<String, dynamic> toJson() => {'targetPercent': targetPercent, 'readyAt': readyAt.toIso8601String()};
+  /// Habitacle climatise a [readyAt] (cf. [ReadyTarget.climate]).
+  final bool climate;
+  final int climateTemperature;
+
+  Map<String, dynamic> toJson() => {
+        'targetPercent': targetPercent,
+        'readyAt': readyAt.toIso8601String(),
+        if (climate) ...{'climate': true, 'climateTemperature': climateTemperature},
+      };
 
   factory OneOffTarget.fromJson(Map<String, dynamic> json) => OneOffTarget(
         targetPercent: json['targetPercent'] as int? ?? 100,
         readyAt: DateTime.parse(json['readyAt'] as String),
+        climate: json['climate'] as bool? ?? false,
+        climateTemperature: json['climateTemperature'] as int? ?? defaultClimateTemperature,
       );
 }
 
@@ -200,6 +250,7 @@ class ChargePlanConfig {
   });
 
   static const defaultPushLeadMinutes = 240;
+
 
   final double? batteryCapacityKwh;
   final double? chargePowerKw;

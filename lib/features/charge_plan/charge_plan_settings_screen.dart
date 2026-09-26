@@ -32,7 +32,9 @@ class ChargePlanSettingsScreen extends ConsumerWidget {
         data: (config) {
           final controller = ref.read(chargePlanConfigProvider.notifier);
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            // Marge de la barre de navigation Android : l'app s'affiche dessous
+            // (plein ecran impose depuis Android 15).
+            padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + MediaQuery.paddingOf(context).bottom),
             children: [
               CalendarCard(config: config, controller: controller),
               const SizedBox(height: 16),

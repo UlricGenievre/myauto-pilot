@@ -479,4 +479,96 @@ void main() {
       expect(platform.confirmations, hasLength(1));
     });
   });
+
+  group('climatisation', () {
+    // Objectif exceptionnel mercredi 07:15, servi par la plage de nuit.
+    ChargePlanConfig withClimate({required bool climate, int temperature = 21}) =>
+        pilotConfig(safeMode: false).copyWith(
+          oneOffTarget: OneOffTarget(
+            targetPercent: 80,
+            readyAt: at(23, 7, 15),
+            climate: climate,
+            climateTemperature: temperature,
+          ),
+        );
+    Map<String, dynamic> program(Map<String, dynamic> sent) => (sent['programs'] as List).first as Map<String, dynamic>;
+
+    test('objectif climatise : programme dedie en charge + preclimatisation', () async {
+      final store = MemoryStore(withClimate(climate: true));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle();
+
+      await pilot(store, platform, vehicle, at(22, 22)).tick();
+
+      final sent = vehicle.writes.single;
+      expect(program(sent)['programType'], 'CHARGE_AND_PRECONDITIONING');
+      expect(program(sent)['programDepartureTime'], '07:15:00');
+      expect(store.state.lastResult, contains('habitacle climatisé'));
+    });
+
+    test('temperature de l\'objectif ecrite avec la plage', () async {
+      final store = MemoryStore(withClimate(climate: true, temperature: 19));
+      final vehicle = FakeVehicle();
+
+      await pilot(store, FakePlatform(), vehicle, at(22, 22)).tick();
+
+      expect(vehicle.writes.single['preconditioningTemperature'], 19);
+      expect(store.state.lastResult, contains('à 19 °C'));
+    });
+
+    test('temperature modifiee apres un envoi : plage renvoyee', () async {
+      final store = MemoryStore(withClimate(climate: true, temperature: 19));
+      final vehicle = FakeVehicle();
+      await pilot(store, FakePlatform(), vehicle, at(22, 22)).tick();
+
+      store.config = withClimate(climate: true, temperature: 23);
+      await pilot(store, FakePlatform(), vehicle, at(22, 22)).tick();
+
+      expect(vehicle.writes, hasLength(2));
+      expect(vehicle.writes.last['preconditioningTemperature'], 23);
+    });
+
+    test('sans climatisation : programme dedie remis en charge seule', () async {
+      final store = MemoryStore(withClimate(climate: false));
+      final vehicle = FakeVehicle();
+
+      await pilot(store, FakePlatform(), vehicle, at(22, 22)).tick();
+
+      expect(program(vehicle.writes.single)['programType'], 'CHARGE');
+      // Temperature de la voiture non touchee sans climatisation.
+      expect(vehicle.writes.single['preconditioningTemperature'], 21);
+    });
+
+    test('climatisation ajoutee apres un envoi : plage renvoyee', () async {
+      final store = MemoryStore(withClimate(climate: false));
+      final vehicle = FakeVehicle();
+      await pilot(store, FakePlatform(), vehicle, at(22, 22)).tick();
+
+      store.config = withClimate(climate: true);
+      await pilot(store, FakePlatform(), vehicle, at(22, 22)).tick();
+
+      expect(vehicle.writes, hasLength(2));
+      expect(program(vehicle.writes.last)['programType'], 'CHARGE_AND_PRECONDITIONING');
+    });
+
+    test('proposition confirmee : la climatisation fait partie du contenu envoye', () async {
+      final store = MemoryStore(withClimate(climate: true).copyWith(safeMode: true));
+      final vehicle = FakeVehicle();
+      final now = at(22, 22);
+      await pilot(store, FakePlatform(), vehicle, now).tick();
+      await pilot(store, FakePlatform(), vehicle, now).confirm('window-20260923T0115');
+      await pilot(store, FakePlatform(), vehicle, now).executeConfirmed();
+
+      expect(program(vehicle.writes.single)['programType'], 'CHARGE_AND_PRECONDITIONING');
+    });
+
+    test('empreinte inchangee pour un parametrage sans climatisation', () {
+      final target = ReadyTarget(targetPercent: 80, readyAt: ClockTime.hm(7, 30));
+      expect(target.toJson().containsKey('climate'), isFalse);
+      expect(target.toJson().containsKey('climateTemperature'), isFalse);
+      final restored = ReadyTarget.fromJson(target.copyWith(climate: true, climateTemperature: 23).toJson());
+      expect(restored.climate, isTrue);
+      expect(restored.climateTemperature, 23);
+    });
+  });
 }

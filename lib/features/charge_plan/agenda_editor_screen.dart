@@ -56,7 +56,9 @@ class AgendaEditorScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        // Marge de la barre de navigation Android : l'app s'affiche dessous
+        // (plein ecran impose depuis Android 15).
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + MediaQuery.paddingOf(context).bottom),
         children: [
           DashboardCard(
             title: 'Objectifs par jour',
@@ -139,7 +141,7 @@ class _DayTargetRow extends StatelessWidget {
                 label: 'Prête à ${current.readyAt.format()}',
                 onTap: () async {
                   final time = await pickClockTime(context, initial: current.readyAt, title: 'Prête à');
-                  if (time != null) onChanged(ReadyTarget(targetPercent: current.targetPercent, readyAt: time));
+                  if (time != null) onChanged(current.copyWith(readyAt: time));
                 },
               ),
             Switch(
@@ -153,7 +155,13 @@ class _DayTargetRow extends StatelessWidget {
         if (current != null) ...[
           PercentSlider(
             value: current.targetPercent,
-            onChanged: (p) => onChanged(ReadyTarget(targetPercent: p, readyAt: current.readyAt)),
+            onChanged: (p) => onChanged(current.copyWith(targetPercent: p)),
+          ),
+          ClimateSelector(
+            climate: current.climate,
+            temperature: current.climateTemperature,
+            onChanged: (on, temperature) =>
+                onChanged(current.copyWith(climate: on, climateTemperature: temperature)),
           ),
         ] else
           const Text('Pas d\'objectif', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
@@ -187,7 +195,8 @@ class _CopyDaysDialogState extends State<_CopyDaysDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${widget.target.targetPercent} % prête à ${widget.target.readyAt.format()} '
+            '${widget.target.targetPercent} % prête à ${widget.target.readyAt.format()}'
+            '${widget.target.climate ? ', climatisée à ${widget.target.climateTemperature} °C' : ''} '
             '(${dayName(widget.sourceDay).toLowerCase()}). Remplace l\'objectif des jours sélectionnés.',
             style: hintStyle,
           ),

@@ -24,14 +24,25 @@ class WindowOccurrence {
 /// Un objectif "pret a X % a telle date/heure", deja resolu (agenda actif ou
 /// objectif ponctuel).
 class EffectiveTarget {
-  const EffectiveTarget({required this.targetPercent, required this.readyAt, required this.isOneOff});
+  const EffectiveTarget({
+    required this.targetPercent,
+    required this.readyAt,
+    required this.isOneOff,
+    this.climate = false,
+    this.climateTemperature = defaultClimateTemperature,
+  });
 
   final int targetPercent;
   final DateTime readyAt;
   final bool isOneOff;
 
+  /// Habitacle climatise a [readyAt], a [climateTemperature] °C.
+  final bool climate;
+  final int climateTemperature;
+
   @override
-  String toString() => 'EffectiveTarget($targetPercent % @ $readyAt${isOneOff ? ', ponctuel' : ''})';
+  String toString() =>
+      'EffectiveTarget($targetPercent % @ $readyAt${isOneOff ? ', ponctuel' : ''}${climate ? ', clim' : ''})';
 }
 
 enum ChargeCommandKind {
@@ -56,6 +67,8 @@ class ChargeCommand {
     required this.durationMinutes,
     required this.readyAt,
     this.target,
+    this._climate,
+    this._climateTemperature,
     this.extendedMinutes = 0,
     this.note,
     DateTime? validUntil,
@@ -82,6 +95,16 @@ class ChargeCommand {
   /// Objectif servi par cette plage (null = heure "pret a" par defaut).
   final EffectiveTarget? target;
 
+  /// Programme dedie en charge + preclimatisation (habitacle pret a
+  /// [readyAt]) plutot qu'en charge seule. Par defaut, celui de [target].
+  bool get climate => _climate ?? target?.climate ?? false;
+  final bool? _climate;
+
+  /// Temperature d'habitacle a ecrire avec la climatisation. Par defaut,
+  /// celle de [target] ; null sans climatisation.
+  int? get climateTemperature => climate ? (_climateTemperature ?? target?.climateTemperature) : null;
+  final int? _climateTemperature;
+
   /// Minutes ajoutees hors plage HC pour tenir l'objectif.
   final int extendedMinutes;
 
@@ -97,7 +120,8 @@ class ChargeCommand {
   /// a") : deux commandes de meme [id] peuvent differer si le parametrage a
   /// change entre-temps (objectif ajoute ou supprime...).
   String get signature =>
-      '${chargeTimeStart.format()}+$durationMinutes>J${readyAt.weekday} ${ClockTime.hm(readyAt.hour, readyAt.minute).format()}';
+      '${chargeTimeStart.format()}+$durationMinutes>J${readyAt.weekday} ${ClockTime.hm(readyAt.hour, readyAt.minute).format()}'
+      '${climate ? ' clim${climateTemperature ?? ''}' : ''}';
 
   /// Jour ISO (1 = lundi) ou le programme dedie est actif : celui de
   /// l'heure "pret a", et lui seul (pas de preparation non desiree les
@@ -112,6 +136,8 @@ class ChargeCommand {
         durationMinutes: durationMinutes,
         readyAt: readyAt,
         target: target,
+        climate: climate,
+        climateTemperature: climateTemperature,
         extendedMinutes: extendedMinutes,
         note: note,
         validUntil: validUntil ?? this.validUntil,
@@ -229,7 +255,13 @@ class ChargePlanner {
     final oneOff = config.oneOffTarget;
     for (var day = _startOfDay(from); !day.isAfter(to); day = _nextDay(day)) {
       if (oneOff != null && _sameDay(oneOff.readyAt, day)) {
-        result.add(EffectiveTarget(targetPercent: oneOff.targetPercent, readyAt: oneOff.readyAt, isOneOff: true));
+        result.add(EffectiveTarget(
+          targetPercent: oneOff.targetPercent,
+          readyAt: oneOff.readyAt,
+          isOneOff: true,
+          climate: oneOff.climate,
+          climateTemperature: oneOff.climateTemperature,
+        ));
         continue;
       }
       final recurring = agenda?.targets[day.weekday];
@@ -238,6 +270,8 @@ class ChargePlanner {
           targetPercent: recurring.targetPercent,
           readyAt: recurring.readyAt.onDay(day),
           isOneOff: false,
+          climate: recurring.climate,
+          climateTemperature: recurring.climateTemperature,
         ));
       }
     }

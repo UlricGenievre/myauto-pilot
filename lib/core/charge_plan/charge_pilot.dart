@@ -222,6 +222,7 @@ class ChargePilot {
     final lines = <String>[
       if (targets.isNotEmpty)
         'Objectif : ${targets.first.targetPercent} % ${_dayWord(targets.first.readyAt, now)} à ${_hm(targets.first.readyAt)}'
+            '${targets.first.climate ? ', climatisée à ${targets.first.climateTemperature} °C' : ''}'
             '${targets.first.isOneOff ? ' (exceptionnel)' : ''}.'
       else
         'Aucun objectif d\'ici demain soir.',
@@ -279,12 +280,16 @@ class ChargePilot {
       final settings = current.toUpdatedJson(
         chargeTimeStart: command.chargeTimeStart.format(),
         chargeDurationMinutes: command.durationMinutes,
+        preconditioningTemperature: command.climate ? command.climateTemperature : null,
         programIndex: programIndex,
         departureTime: _hm(command.readyAt),
         programActive: true,
         // Actif le seul jour de l'heure "pret a" : pas de preparation non
         // desiree les autres jours (la plage est reecrite a chaque envoi).
         programDays: {command.readyDay},
+        // Toujours ecrit : le programme dedie appartient a l'app, une clim
+        // demandee pour un objectif ne doit pas rester pour le suivant.
+        programKind: command.climate ? ProgramKind.chargeAndPreconditioning : ProgramKind.charge,
       );
       await vehicle.updateSchedule(vin, settings);
 
@@ -303,7 +308,12 @@ class ChargePilot {
             '${pollTimeout.inSeconds} s. Vérifiez dans l\'app.');
       }
 
-      final body = 'Plage appliquée : ${_window(command)}, prête à ${_hm(command.readyAt)}.';
+      final programs = reread.programs;
+      final climateApplied = programIndex >= programs.length ||
+          programs[programIndex].kind.includesClimate == command.climate;
+      final body = 'Plage appliquée : ${_window(command)}, prête à ${_hm(command.readyAt)}'
+          '${command.climate && climateApplied ? ', habitacle climatisé${_temperature(command)}' : ''}.'
+          '${climateApplied ? '' : ' La voiture n\'a pas retenu la climatisation.'}';
       await platform.showResult('Plage envoyée', body);
       return _withResult(
         state.copyWith(sent: CommandMark.of(command, config.fingerprint), clearPending: true, clearConfirmed: true),
@@ -351,7 +361,8 @@ class ChargePilot {
     return [
       'Plage ${_window(command)}',
       'Prête ${_dayWord(command.readyAt, now)} à ${_hm(command.readyAt)}'
-          '${target != null ? ' (objectif ${target.targetPercent} %)' : ''}',
+          '${target != null ? ' (objectif ${target.targetPercent} %)' : ''}'
+          '${command.climate ? ', habitacle climatisé${_temperature(command)}' : ''}',
       if (command.extendedMinutes > 0) 'Élargie de ${command.extendedMinutes} min hors heures creuses',
       if (command.note != null) command.note!,
     ].join('\n');
@@ -360,6 +371,9 @@ class ChargePilot {
   String _window(ChargeCommand command) => command.durationMinutes >= 1440
       ? '00:00 → 00:00 (24 h)'
       : '${_hm(command.windowStart)} → ${_hm(command.windowEnd)}';
+
+  static String _temperature(ChargeCommand command) =>
+      command.climateTemperature != null ? ' à ${command.climateTemperature} °C' : '';
 
   static String _hm(DateTime d) => ClockTime.hm(d.hour, d.minute).format();
 

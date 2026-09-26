@@ -1,0 +1,4 @@
+• Climate-controlled targets: "Climate" option with its temperature, for each schedule day and the one-off target.
+• Status: plug and detailed charging state, fuel for plug-in hybrids, cabin temperature (with measurement time).
+• Actions: climate status, horn and lights to find the car.
+• Settings and schedules: page bottoms no longer hidden by the navigation bar.

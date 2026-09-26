@@ -5,6 +5,7 @@ import '../../core/charge_plan/pilot_state.dart';
 import '../../core/models/battery_status.dart';
 import '../../core/models/charge_plan_config.dart';
 import '../../core/models/cockpit.dart';
+import '../../core/models/hvac_status.dart';
 import '../../core/models/vehicle.dart';
 import '../../core/models/vehicle_location.dart';
 import '../../core/models/vehicle_schedule.dart';
@@ -38,8 +39,9 @@ class DemoVehicleRepository implements VehicleRepository {
     return BatteryStatus(
       batteryLevel: 46,
       rangeKm: 205,
-      isCharging: false,
-      plugStatus: '1',
+      plugState: PlugState.plugged,
+      chargeState: ChargeState.waitingPlanned,
+      batteryTemperature: 18,
       lastUpdated: DateTime.now().subtract(const Duration(minutes: 12)),
       batteryCapacityKwh: 80,
       availableEnergyKwh: 36.8,
@@ -49,7 +51,21 @@ class DemoVehicleRepository implements VehicleRepository {
   @override
   Future<Cockpit> fetchCockpit(String vin) async {
     await Future<void>.delayed(_latency);
-    return const Cockpit(totalMileageKm: 12480);
+    return const Cockpit(totalMileageKm: 12480, fuelQuantityLiters: 31, fuelAutonomyKm: 540);
+  }
+
+  bool _hvacOn = false;
+
+  @override
+  Future<HvacStatus> fetchHvacStatus(String vin) async {
+    await Future<void>.delayed(_latency);
+    return HvacStatus(
+      isOn: _hvacOn,
+      internalTemperature: _hvacOn ? 20 : 14.5,
+      externalTemperature: 12,
+      socThreshold: 15,
+      lastUpdated: DateTime.now().subtract(const Duration(minutes: 5)),
+    );
   }
 
   @override
@@ -76,7 +92,11 @@ class DemoVehicleRepository implements VehicleRepository {
   }
 
   @override
-  Future<void> sendAction(String vin, VehicleAction action) => Future<void>.delayed(_latency * 2);
+  Future<void> sendAction(String vin, VehicleAction action) async {
+    await Future<void>.delayed(_latency * 2);
+    if (action == VehicleAction.hvacStart) _hvacOn = true;
+    if (action == VehicleAction.hvacStop) _hvacOn = false;
+  }
 
   static Map<String, dynamic> _copy(Map<String, dynamic> json) =>
       jsonDecode(jsonEncode(json)) as Map<String, dynamic>;
@@ -128,7 +148,7 @@ ChargePlanConfig demoChargePlanConfig() {
         for (var day = 1; day <= 5; day++) day: ReadyTarget(targetPercent: 80, readyAt: ClockTime.hm(7, 30)),
       }),
       TargetAgenda(id: 'demo-vacances', name: 'Vacances', targets: {
-        6: ReadyTarget(targetPercent: 100, readyAt: ClockTime.hm(9, 0)),
+        6: ReadyTarget(targetPercent: 100, readyAt: ClockTime.hm(9, 0), climate: true),
       }),
     ],
     activeAgendaId: 'demo-habituel',

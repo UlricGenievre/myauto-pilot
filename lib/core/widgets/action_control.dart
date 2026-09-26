@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Tuile de controle a distance : grande icone, label, et un segment
-/// demarrer/arreter en bas. `isPending` remplace le segment par un spinner
-/// le temps que l'action reponde.
+/// Tuile de controle a distance : grande icone, label, etat eventuel, et un
+/// segment demarrer/arreter en bas (un seul bouton [startLabel] sans
+/// [onStop]). `isPending` remplace le segment par un spinner le temps que
+/// l'action reponde.
 class ActionControl extends StatelessWidget {
   const ActionControl({
     super.key,
@@ -12,14 +13,20 @@ class ActionControl extends StatelessWidget {
     required this.label,
     required this.isPending,
     required this.onStart,
-    required this.onStop,
+    this.onStop,
+    this.startLabel = 'Démarrer',
+    this.status,
   });
 
   final IconData icon;
   final String label;
   final bool isPending;
   final VoidCallback onStart;
-  final VoidCallback onStop;
+  final VoidCallback? onStop;
+  final String startLabel;
+
+  /// Etat actuel (ex. "En marche · 20 °C"), sous le label.
+  final String? status;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +43,10 @@ class ActionControl extends StatelessWidget {
           Icon(icon, size: 28, color: AppColors.accent),
           const SizedBox(height: 16),
           Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          if (status != null) ...[
+            const SizedBox(height: 4),
+            Text(status!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          ],
           const Spacer(),
           const SizedBox(height: 16),
           if (isPending)
@@ -52,9 +63,11 @@ class ActionControl extends StatelessWidget {
           else
             Row(
               children: [
-                Expanded(child: _SegmentButton(label: 'Arrêter', onTap: onStop, filled: false)),
-                const SizedBox(width: 8),
-                Expanded(child: _SegmentButton(label: 'Démarrer', onTap: onStart, filled: true)),
+                if (onStop case final stop?) ...[
+                  Expanded(child: _SegmentButton(label: 'Arrêter', onTap: stop, filled: false)),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(child: _SegmentButton(label: startLabel, onTap: onStart, filled: true)),
               ],
             ),
         ],

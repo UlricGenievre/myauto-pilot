@@ -1,6 +1,7 @@
 import '../../core/api/kamereon_client.dart';
 import '../../core/models/battery_status.dart';
 import '../../core/models/cockpit.dart';
+import '../../core/models/hvac_status.dart';
 import '../../core/models/vehicle.dart';
 import '../../core/models/vehicle_location.dart';
 import '../../core/models/vehicle_schedule.dart';
@@ -28,6 +29,9 @@ class VehicleRepository {
 
   Future<Cockpit> fetchCockpit(String vin) =>
       _client.fetchCockpit(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
+
+  Future<HvacStatus> fetchHvacStatus(String vin) =>
+      _client.fetchHvacStatus(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
 
   Future<VehicleLocation> fetchLocation(String vin) =>
       _client.fetchLocation(jwt: _session.jwt, accountId: _session.accountId, vin: vin);

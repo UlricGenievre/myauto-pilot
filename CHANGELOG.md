@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+- Objectifs climatisés : option « Climatisation », avec sa température
+  (16 à 26 °C, 21 °C par défaut), sur les objectifs des agendas et
+  l'objectif exceptionnel. L'habitacle est préparé pour l'heure « prête à »
+  (programme de la voiture en charge + préclimatisation).
+- Onglet État : branchement et état de charge détaillé (en attente de la
+  plage, en charge avec puissance et temps restant, charge terminée,
+  trappe ouverte…), carburant des hybrides rechargeables (autonomie et
+  litres, auparavant jamais affiché), température de l'habitacle avec
+  l'ancienneté de la mesure (la voiture ne la rafraîchit qu'éveillée).
+- Onglet Actions : état de la climatisation et températures, klaxon et
+  phares pour retrouver la voiture.
+- Réglages et agendas : le bas des pages n'est plus masqué par la barre de
+  navigation d'Android.
+
 ## 0.1.1
 
 - Mode démonstration (« Découvrir sans compte ») : véhicule et données

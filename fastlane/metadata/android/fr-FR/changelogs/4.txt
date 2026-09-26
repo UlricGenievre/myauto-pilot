@@ -1,0 +1,4 @@
+• Objectifs climatisés : option « Climatisation » avec sa température, pour chaque jour d'agenda et l'objectif exceptionnel.
+• État : branchement et état de charge détaillé, carburant des hybrides rechargeables, température de l'habitacle (avec l'heure de la mesure).
+• Actions : état de la climatisation, klaxon et phares pour retrouver la voiture.
+• Réglages et agendas : le bas des pages n'est plus masqué par la barre de navigation.
