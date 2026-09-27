@@ -58,15 +58,18 @@ DateTime? addMinutesToTimeOfDay(String? raw, int? minutes) {
 
 /// Jour + heure courts pour une echeance proche : "aujourd'hui 13:00",
 /// "demain 07:30", sinon "mer. 24 07:30" (jour selon la locale de
-/// l'appareil).
-String formatDayTime(DateTime dateTime) {
+/// l'appareil). [separator] entre le jour et l'heure (ex. " à ").
+String formatDayTime(DateTime dateTime, {String separator = ' '}) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(dateTime.year, dateTime.month, dateTime.day);
   final time = formatTimeOfDay(dateTime);
   final days = (day.difference(today).inHours / 24).round(); // robuste aux jours de 23/25 h
-  if (days == 0) return 'aujourd\'hui $time';
-  if (days == 1) return 'demain $time';
-  if (days == -1) return 'hier $time';
-  return '${DateFormat('EEE d', _deviceLocale()).format(dateTime)} $time';
+  final dayLabel = switch (days) {
+    0 => 'aujourd\'hui',
+    1 => 'demain',
+    -1 => 'hier',
+    _ => DateFormat('EEE d', _deviceLocale()).format(dateTime),
+  };
+  return '$dayLabel$separator$time';
 }

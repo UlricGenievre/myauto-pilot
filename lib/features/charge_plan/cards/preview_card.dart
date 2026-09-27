@@ -8,6 +8,7 @@ import '../../../core/utils/date_formatting.dart';
 import '../../../core/widgets/dashboard_card.dart';
 import '../../vehicle_status/vehicle_status_providers.dart';
 import '../charge_plan_pickers.dart';
+import '../charge_plan_providers.dart';
 
 /// Ce que l'app envoie (ou enverra) a la voiture avec le parametrage actuel :
 /// plage en vigueur et prochain envoi.
@@ -23,6 +24,8 @@ class PreviewCard extends ConsumerWidget {
     final planner = ChargePlanner(config);
     final inForce = planner.commandInForce(now, socPercent: soc);
     final upcoming = planner.upcomingCommand(now, socPercent: soc);
+    final sent = config.enabled ? ref.watch(pilotStateProvider).valueOrNull?.sent : null;
+    final inForceSent = inForce != null && (sent?.covers(inForce, config.fingerprint) ?? false);
 
     return DashboardCard(
       title: 'Charge pilotée',
@@ -32,7 +35,7 @@ class PreviewCard extends ConsumerWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (inForce != null) _CommandSummary(label: 'En vigueur', command: inForce),
+                if (inForce != null) _CommandSummary(label: 'En vigueur', command: inForce, sent: inForceSent),
                 if (inForce != null && upcoming != null)
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
                 if (upcoming != null) _CommandSummary(label: 'Prochain envoi', command: upcoming),
@@ -48,10 +51,13 @@ class PreviewCard extends ConsumerWidget {
 }
 
 class _CommandSummary extends StatelessWidget {
-  const _CommandSummary({required this.label, required this.command});
+  const _CommandSummary({required this.label, required this.command, this.sent = false});
 
   final String label;
   final ChargeCommand command;
+
+  /// Deja envoyee a la voiture (a son heure d'envoi prevue).
+  final bool sent;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +78,10 @@ class _CommandSummary extends StatelessWidget {
           '${command.climate ? ' · climatisée à ${command.climateTemperature} °C' : ''}',
         ),
         const SizedBox(height: 2),
-        Text('Envoi ${formatDayTime(command.pushAt)}', style: hintStyle),
+        Text(
+          sent ? 'Envoyé ${formatDayTime(command.pushAt, separator: ' à ')}' : 'Envoi ${formatDayTime(command.pushAt)}',
+          style: hintStyle,
+        ),
         if (command.extendedMinutes > 0)
           Text('Élargie de ${command.extendedMinutes} min hors heures creuses pour tenir l\'objectif.',
               style: hintStyle.copyWith(color: AppColors.accent)),
