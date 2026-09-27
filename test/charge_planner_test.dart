@@ -116,12 +116,25 @@ void main() {
       expect(ChargePlanner(config()).commandInForce(at(27, 15))!.id, cmd.id);
     });
 
-    test('sortie du bloc : envoi avant minuit, plage demarrant des l\'envoi', () {
+    test('sortie du bloc : envoi avant minuit, plage non avancee sans objectif', () {
       final cmd = ChargePlanner(config()).upcomingCommand(at(28, 18))!; // lundi soir
       expect(cmd.kind, ChargeCommandKind.window);
       expect(cmd.pushAt, at(28, 21)); // mardi 01:00 - 4 h, avant lundi 23:00
-      expect(cmd.windowStart, at(28, 21));
+      // Pas de charge sur les heures pleines de mardi 00:00-01:00.
+      expect(cmd.windowStart, at(29, 1));
       expect(cmd.windowEnd, at(29, 7));
+      expect(cmd.extendedMinutes, 0);
+    });
+
+    test('sortie du bloc : objectif insuffisant, debut avance jusqu\'a l\'envoi au plus', () {
+      // 10 % -> 100 % : 401 min pour 360 min de plage, echeance 07:00 (pas
+      // de prolongation possible) : debut avance de 45 min (arrondi).
+      final cfg = config(targets: {2: ReadyTarget(targetPercent: 100, readyAt: ClockTime.hm(7, 0))});
+      final cmd = ChargePlanner(cfg).upcomingCommand(at(28, 18), socPercent: 10)!;
+      expect(cmd.pushAt, at(28, 21));
+      expect(cmd.windowStart, at(29, 0, 15));
+      expect(cmd.windowEnd, at(29, 7));
+      expect(cmd.extendedMinutes, 45);
     });
 
     test('objectif atteignable : pas d\'elargissement, pret a = objectif', () {

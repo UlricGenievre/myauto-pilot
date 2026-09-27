@@ -385,15 +385,15 @@ class ChargePlanner {
 
     if (previous != null && previous.allDay) {
       // Sortie d'un bloc HC complet : la plage 24 h en place deborderait en
-      // heures pleines apres minuit, donc on envoie avant la fin du bloc, et
-      // la plage demarre des l'envoi (on est encore en HC) pour ne pas
-      // couper la charge.
+      // heures pleines apres minuit, donc on envoie avant la fin du bloc.
+      // La plage garde ses horaires (pas de charge sur les heures pleines
+      // entre la fin du bloc et son debut) ; seul un objectif peut
+      // l'avancer, jusqu'a l'heure d'envoi.
       final latest = previous.end.subtract(allDayExitMargin);
       if (latest.isBefore(pushAt)) pushAt = latest;
       final floor = allDayFullPushTime.onDay(previous.start).add(const Duration(minutes: _roundingMinutes));
       if (pushAt.isBefore(floor)) pushAt = floor;
-      windowStart = _floorTo(pushAt, _roundingMinutes);
-      earliestStart = windowStart;
+      earliestStart = _floorTo(pushAt, _roundingMinutes);
     } else if (previous != null && previous.end.isAfter(pushAt)) {
       // Ne pas remplacer une plage encore en cours.
       pushAt = previous.end;

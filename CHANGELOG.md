@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- Pilotage : à la fin d'une série de journées entièrement en heures
+  creuses, la plage envoyée garde ses horaires au lieu de démarrer dès
+  l'envoi, qui faisait charger sur les heures pleines entre minuit et le
+  début de la plage. Seul un objectif peut encore l'avancer.
+
 ## 0.2.0
 
 - Objectifs climatisés : option « Climatisation », avec sa température
