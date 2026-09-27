@@ -9,6 +9,9 @@ final appPrefsProvider = Provider<AppPrefs>((ref) => AppPrefs());
 /// Avertissement accepte (affiche au premier lancement, avant la connexion).
 final disclaimerAcceptedProvider = FutureProvider<bool>((ref) => ref.read(appPrefsProvider).disclaimerAccepted);
 
+/// Tutoriel a afficher apres l'avertissement (premier lancement uniquement).
+final tutorialPendingProvider = FutureProvider<bool>((ref) => ref.read(appPrefsProvider).tutorialPending);
+
 /// Points de l'avertissement, repris dans "A propos".
 const disclaimerPoints = [
   'MyAuto Pilot est une application indépendante, ni affiliée à Renault ni approuvée par Renault.',
@@ -69,6 +72,7 @@ class DisclaimerScreen extends ConsumerWidget {
             FilledButton(
               onPressed: () async {
                 await ref.read(appPrefsProvider).acceptDisclaimer();
+                ref.invalidate(tutorialPendingProvider);
                 ref.invalidate(disclaimerAcceptedProvider);
               },
               child: const Text('J\'ai compris'),

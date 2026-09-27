@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/about/disclaimer.dart';
+import 'features/about/tutorial_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'home_screen.dart';
@@ -15,6 +16,7 @@ class MyAutoPilotApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
     final disclaimerAccepted = ref.watch(disclaimerAcceptedProvider);
+    final tutorialPending = ref.watch(tutorialPendingProvider);
 
     return MaterialApp(
       title: 'MyAuto Pilot',
@@ -34,10 +36,20 @@ class MyAutoPilotApp extends ConsumerWidget {
       // affiche, avec son propre indicateur de chargement sur le bouton.
       home: switch (disclaimerAccepted) {
         AsyncData(value: false) => const DisclaimerScreen(),
-        AsyncData() => switch (authState) {
-            AuthAuthenticated() || AuthDemo() => const HomeScreen(),
-            AuthInitial() => const _SplashScreen(),
-            AuthLoading() || AuthUnauthenticated() => const LoginScreen(),
+        // Tutoriel illisible (erreur de stockage) : on ne bloque pas l'app.
+        AsyncData() => switch (tutorialPending) {
+            AsyncData(value: true) => TutorialScreen(
+                onFinished: () async {
+                  await ref.read(appPrefsProvider).finishTutorial();
+                  ref.invalidate(tutorialPendingProvider);
+                },
+              ),
+            AsyncLoading() => const _SplashScreen(),
+            _ => switch (authState) {
+                AuthAuthenticated() || AuthDemo() => const HomeScreen(),
+                AuthInitial() => const _SplashScreen(),
+                AuthLoading() || AuthUnauthenticated() => const LoginScreen(),
+              },
           },
         _ => const _SplashScreen(),
       },

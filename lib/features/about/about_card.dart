@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/dashboard_card.dart';
 import '../charge_plan/charge_plan_pickers.dart';
 import 'disclaimer.dart';
+import 'tutorial_screen.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>((ref) => PackageInfo.fromPlatform());
 
@@ -45,6 +46,13 @@ class AboutCard extends ConsumerWidget {
               applicationName: 'MyAuto Pilot',
               applicationVersion: version,
             ),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.school_outlined, color: AppColors.accent),
+            label: const Text('Revoir le tutoriel'),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (route) => TutorialScreen(onFinished: () => Navigator.of(route).pop()),
+            )),
           ),
           const SizedBox(height: 8),
           const DisclaimerPoints(),

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Tutoriel au premier lancement, après l'avertissement : onglets de
+  l'application, heures creuses, objectifs « prête à », mode sécurisé, et
+  autorisations Android (notifications, « Alarmes et rappels ») à donner
+  directement. À revoir depuis Réglages › À propos.
+- Onglet Pilotage : la plage en vigueur affiche « Envoyé <jour> à
+  <heure> » une fois envoyée à la voiture.
+
 ## 0.2.1
 
 - Pilotage : à la fin d'une série de journées entièrement en heures

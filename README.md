@@ -60,14 +60,15 @@ Pour découvrir l'application sans compte, choisissez **Découvrir sans
 compte (démonstration)** sur l'écran de connexion : véhicule et données
 fictifs, rien n'est envoyé.
 
-Au premier lancement : lisez l'avertissement, choisissez le **pays** de
-votre compte MyRenault, connectez-vous, puis renseignez vos plages dans
+Au premier lancement : lisez l'avertissement, parcourez le court tutoriel
+(à revoir depuis **Réglages › À propos**), choisissez le **pays** de votre
+compte MyRenault, connectez-vous, puis renseignez vos plages dans
 **Réglages** (roue dentée).
 
 **Autorisations demandées** : notifications (confirmations et résultats des
 envois), « Alarmes et rappels » (envoi des plages à l'heure exacte, à
-autoriser dans le réglage Android que l'application ouvre à l'activation du
-pilotage), démarrage automatique (reprogrammation après un redémarrage du
+autoriser dans le réglage Android que l'application ouvre depuis le
+tutoriel ou à l'activation du pilotage), démarrage automatique (reprogrammation après un redémarrage du
 téléphone).
 
 ## Compatibilité
