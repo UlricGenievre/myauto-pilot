@@ -46,7 +46,7 @@ dependencies:
   dio: ^5.7.0
 
   # Secure storage for auth tokens (login token, JWT, refresh token)
-  flutter_secure_storage: ^10.3.4
+  flutter_secure_storage: ^11.2.0
 
   # Map display for the vehicle location screen (OpenStreetMap, no API key needed)
   flutter_map: ^7.0.2
