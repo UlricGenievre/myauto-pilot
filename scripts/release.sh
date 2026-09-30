@@ -34,7 +34,7 @@ notes=$(awk -v v="## $version" '$0 == v {on = 1; next} on && /^## / {exit} on' C
 
 echo "Release $tag : build de l'APK signe..."
 ./scripts/flutter.sh build apk --release
-out=build/release
+out=dist
 mkdir -p "$out"
 cp build/app/outputs/flutter-apk/app-release.apk "$out/$apk"
 (cd "$out" && sha256sum "$apk" > "$apk.sha256")

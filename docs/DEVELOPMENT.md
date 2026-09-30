@@ -131,7 +131,7 @@ Publier une version :
 1. Monter `version:` dans `pubspec.yaml`, ajouter la section `## X.Y.Z` en
    tete de `CHANGELOG.md`, commiter.
 2. `./scripts/release.sh` : verifications, APK signe + SHA-256 dans
-   `build/release/`, puis (apres confirmation) push de `main` et release
+   `dist/`, puis (apres confirmation) push de `main` et release
    GitHub en **brouillon**, notes tirees du CHANGELOG.
 3. Relire le brouillon sur GitHub et le publier : le tag `vX.Y.Z` est cree
    a ce moment-la.

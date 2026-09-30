@@ -34,6 +34,8 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+# APK et notes de release (scripts/release.sh)
+/dist/
 /coverage/
 
 # Symbolication related
