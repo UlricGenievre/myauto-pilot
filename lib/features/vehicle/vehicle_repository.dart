@@ -11,12 +11,11 @@ import '../auth/auth_repository.dart';
 /// (jwt + accountId), pour eviter de la repasser a chaque appel.
 class VehicleRepository {
   VehicleRepository({
-    required AuthSession session,
+    required this._session,
     KamereonClient? client,
     Future<String?> Function()? onUnauthorized,
     Future<bool> Function()? onKeyRejected,
-  })  : _session = session,
-        _client = client ?? KamereonClient(onUnauthorized: onUnauthorized, onKeyRejected: onKeyRejected);
+  }) : _client = client ?? KamereonClient(onUnauthorized: onUnauthorized, onKeyRejected: onKeyRejected);
 
   final AuthSession _session;
   final KamereonClient _client;
