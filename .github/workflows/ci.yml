@@ -26,6 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Tag de version = version de pubspec.yaml (seule source, cf.
+      # scripts/release.sh).
+      - name: Tag conforme a pubspec.yaml
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n 's/^version: *\([0-9][0-9.]*\)+[0-9]*$/\1/p' pubspec.yaml)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME, mais pubspec.yaml indique la version $version"
+            exit 1
+          fi
+
       # Meme version de Flutter que l'environnement de dev (Dockerfile).
       - name: Version de Flutter
         id: flutter

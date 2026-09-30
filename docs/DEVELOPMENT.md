@@ -112,3 +112,26 @@ Il est signe avec la cle d'upload decrite par `android/upload.properties`
 Google Play re-signe les bundles avec la cle de l'app, la meme que celle des
 APK publies sur GitHub : un utilisateur peut passer d'un canal a l'autre
 sans reinstaller.
+
+## Integration continue et versions
+
+`.github/workflows/ci.yml` : analyse (infos bloquantes) et tests a chaque
+push sur `main` et pull request, avec la version de Flutter du
+`Dockerfile` ; build d'un APK debug non signe (verification) sur les pull
+requests, les tags `v*` et a la demande.
+
+La version n'est definie qu'a un endroit : `version:` dans `pubspec.yaml`
+(`X.Y.Z+N`, `N` = `versionCode` Android, a incrementer a chaque version).
+Elle donne la version affichee dans l'app (Reglages › A propos), le tag
+`vX.Y.Z`, le nom de l'APK et le titre de la release ; la CI refuse un tag
+qui ne correspond pas a `pubspec.yaml`.
+
+Publier une version :
+
+1. Monter `version:` dans `pubspec.yaml`, ajouter la section `## X.Y.Z` en
+   tete de `CHANGELOG.md`, commiter.
+2. `./scripts/release.sh` : verifications, APK signe + SHA-256 dans
+   `build/release/`, puis (apres confirmation) push de `main` et release
+   GitHub en **brouillon**, notes tirees du CHANGELOG.
+3. Relire le brouillon sur GitHub et le publier : le tag `vX.Y.Z` est cree
+   a ce moment-la.
