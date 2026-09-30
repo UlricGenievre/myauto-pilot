@@ -5,12 +5,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../charge_plan/charge_pilot.dart';
 import '../charge_plan/pilot_state.dart';
 import '../models/charge_plan_config.dart';
+import 'secure_storage.dart';
 
 /// Persistance du parametrage de charge (une cle JSON), meme mecanisme que
 /// `SecureTokenStorage`. Classe Dart pure (pas de Riverpod) : reutilisee
 /// telle quelle par les reveils en arriere-plan.
 class ChargePlanStorage implements PilotStore {
-  ChargePlanStorage({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
+  ChargePlanStorage({FlutterSecureStorage? storage}) : _storage = storage ?? appSecureStorage;
 
   final FlutterSecureStorage _storage;
 

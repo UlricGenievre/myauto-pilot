@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../api/renault_api_settings.dart';
+import 'secure_storage.dart';
 
 /// Stocke les jetons d'authentification (login token Gigya, JWT Kamereon,
 /// identifiants de compte/vehicule) dans le keystore/keychain du telephone.
 class SecureTokenStorage {
   SecureTokenStorage({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+      : _storage = storage ?? appSecureStorage;
 
   final FlutterSecureStorage _storage;
 

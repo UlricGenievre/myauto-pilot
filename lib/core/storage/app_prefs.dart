@@ -1,9 +1,11 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'secure_storage.dart';
+
 /// Preferences de l'app independantes de la session (conservees a la
 /// deconnexion).
 class AppPrefs {
-  AppPrefs({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
+  AppPrefs({FlutterSecureStorage? storage}) : _storage = storage ?? appSecureStorage;
 
   final FlutterSecureStorage _storage;
 
