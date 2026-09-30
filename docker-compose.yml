@@ -1,6 +1,8 @@
 services:
   flutter:
-    image: ghcr.io/cirruslabs/flutter:stable
+    # SDK Flutter a version fixe : cf. Dockerfile.
+    build: .
+    image: myauto-pilot-flutter:3.47.5
     working_dir: /app
     volumes:
       - .:/app

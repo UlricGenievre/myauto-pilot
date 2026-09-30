@@ -76,6 +76,12 @@ premiere fois.)
 ./scripts/flutter.sh run -d web-server --web-port=8090 --web-hostname=0.0.0.0 # Pour usage depuis navigateur
 ```
 
+L'image est construite localement (`Dockerfile`, au premier lancement ou
+apres `docker compose build`) : SDK Flutter a version fixe
+(`FLUTTER_VERSION`, somme SHA-256 verifiee), NDK et plateformes Android
+prechargees. Pour monter de version Flutter, modifier `FLUTTER_VERSION` et
+`FLUTTER_SHA256` puis reconstruire.
+
 Le conteneur tourne avec `network_mode: host` : le client `adb` embarque
 dans l'image Flutter parle directement au serveur `adb` de l'hote sur
 `127.0.0.1:5037`, qui lui gere le telephone partage via usbipd. Ce mode

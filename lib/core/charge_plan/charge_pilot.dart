@@ -304,7 +304,7 @@ class ChargePilot {
           reread.chargeWindowStart == command.chargeTimeStart.format() &&
           reread.chargeWindowDurationMinutes == command.durationMinutes;
       if (!applied) {
-        return _fail(state, command, 'Envoyé, mais la voiture n\'a pas confirmé la nouvelle plage après '
+        return await _fail(state, command, 'Envoyé, mais la voiture n\'a pas confirmé la nouvelle plage après '
             '${pollTimeout.inSeconds} s. Vérifiez dans l\'app.');
       }
 
