@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.3
+
+- Pilotage sans objectif : l'heure « prête à » que la voiture exige pour
+  activer la plage de charge n'est plus affichée (onglet Pilotage,
+  notifications). Arbitraire et jamais atteinte, elle est désormais fixée
+  à 12:00 la veille de l'envoi ; elle reste visible dans les programmes de
+  la voiture.
+- Sécurité : composants techniques mis à jour (Flutter 3.47.5, stockage
+  chiffré de la session et des réglages modernisé). Mise à jour depuis la
+  0.2.2 ou antérieure : reconnexion et paramétrage du pilotage à refaire.
+
 ## 0.2.2
 
 - Tutoriel au premier lancement, après l'avertissement : onglets de
