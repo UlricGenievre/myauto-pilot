@@ -19,7 +19,7 @@ class AboutCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final version = ref.watch(_packageInfoProvider).valueOrNull?.version;
+    final version = ref.watch(_packageInfoProvider).value?.version;
     return DashboardCard(
       title: 'À propos',
       icon: Icons.info_outline,

@@ -18,13 +18,13 @@ class PilotSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(chargePlanConfigProvider).valueOrNull;
+    final config = ref.watch(chargePlanConfigProvider).value;
     if (config == null) return const SizedBox.shrink();
-    final soc = ref.watch(batteryStatusProvider).valueOrNull?.batteryLevel;
-    final pilotState = config.enabled ? ref.watch(pilotStateProvider).valueOrNull : null;
+    final soc = ref.watch(batteryStatusProvider).value?.batteryLevel;
+    final pilotState = config.enabled ? ref.watch(pilotStateProvider).value : null;
 
     return GestureDetector(
-      onTap: () => ref.read(homeTabProvider.notifier).state = HomeTab.pilot,
+      onTap: () => ref.read(homeTabProvider.notifier).select(HomeTab.pilot),
       child: DashboardCard(
         title: 'Pilotage de charge',
         icon: Icons.bolt_outlined,

@@ -42,7 +42,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Tient a jour le code modele du vehicule pilote (il determine ce que
   /// l'app peut y ecrire), y compris pour un parametrage enregistre sans.
   void _syncPilotedModelCode(List<Vehicle> vehicles) {
-    final config = ref.read(chargePlanConfigProvider).valueOrNull;
+    final config = ref.read(chargePlanConfigProvider).value;
     final vin = config?.vehicleVin;
     if (config == null || vin == null) return;
     for (final vehicle in vehicles) {
@@ -62,7 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       next.whenData((vehicles) {
         final selected = ref.read(selectedVehicleProvider);
         if (selected == null && vehicles.isNotEmpty) {
-          ref.read(selectedVehicleProvider.notifier).state = vehicles.first;
+          ref.read(selectedVehicleProvider.notifier).select(vehicles.first);
         }
         _syncPilotedModelCode(vehicles);
       });
@@ -76,7 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return _VehiclePicker(
               vehicles: vehicles,
               selected: selected,
-              onSelected: (vehicle) => ref.read(selectedVehicleProvider.notifier).state = vehicle,
+              onSelected: (vehicle) => ref.read(selectedVehicleProvider.notifier).select(vehicle),
             );
           },
           loading: () => const Text('MyAuto Pilot'),
@@ -115,7 +115,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: tabIndex,
-        onDestinationSelected: (index) => ref.read(homeTabProvider.notifier).state = index,
+        onDestinationSelected: (index) => ref.read(homeTabProvider.notifier).select(index),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.speed_outlined), selectedIcon: Icon(Icons.speed), label: 'État'),
           NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Localisation'),

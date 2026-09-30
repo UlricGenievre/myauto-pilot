@@ -39,7 +39,14 @@ final vehiclesProvider = FutureProvider<List<Vehicle>>((ref) async {
 /// compte a plusieurs vehicules). Remis a zero a chaque changement de nature
 /// de session (deconnexion, connexion, demonstration) : pas de vehicule d'un
 /// autre compte ou fictif qui resterait selectionne.
-final selectedVehicleProvider = StateProvider<Vehicle?>((ref) {
-  ref.watch(authControllerProvider.select((state) => state.runtimeType));
-  return null;
-});
+final selectedVehicleProvider = NotifierProvider<SelectedVehicleController, Vehicle?>(SelectedVehicleController.new);
+
+class SelectedVehicleController extends Notifier<Vehicle?> {
+  @override
+  Vehicle? build() {
+    ref.watch(authControllerProvider.select((state) => state.runtimeType));
+    return null;
+  }
+
+  void select(Vehicle vehicle) => state = vehicle;
+}

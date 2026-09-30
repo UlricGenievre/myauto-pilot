@@ -36,5 +36,8 @@ Future<void> main() async {
     debugPrint('initPilotRuntime: $error');
   }
 
-  runApp(const ProviderScope(child: MyAutoPilotApp()));
+  // Pas de nouvel essai automatique d'un provider en erreur (defaut de
+  // Riverpod 3) : les erreurs Renault (403/502, cles refusees...) restent
+  // affichees, sans rafale d'appels ; l'utilisateur relance lui-meme.
+  runApp(ProviderScope(retry: (_, _) => null, child: const MyAutoPilotApp()));
 }

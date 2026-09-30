@@ -37,8 +37,8 @@ class VehicleStatusScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           _CockpitSection(
             asyncCockpit: cockpit,
-            battery: battery.valueOrNull,
-            hvac: ref.watch(hvacStatusProvider).valueOrNull,
+            battery: battery.value,
+            hvac: ref.watch(hvacStatusProvider).value,
           ),
         ],
       ),

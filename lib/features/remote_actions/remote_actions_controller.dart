@@ -14,14 +14,13 @@ class RemoteActionState {
   bool isPending(VehicleAction action) => pendingAction == action;
 }
 
-class RemoteActionsController extends StateNotifier<RemoteActionState> {
-  RemoteActionsController(this._ref) : super(const RemoteActionState());
-
-  final Ref _ref;
+class RemoteActionsController extends Notifier<RemoteActionState> {
+  @override
+  RemoteActionState build() => const RemoteActionState();
 
   Future<void> trigger(VehicleAction action) async {
-    final repository = _ref.read(vehicleRepositoryProvider);
-    final vehicle = _ref.read(selectedVehicleProvider);
+    final repository = ref.read(vehicleRepositoryProvider);
+    final vehicle = ref.read(selectedVehicleProvider);
     if (repository == null || vehicle == null) return;
 
     state = RemoteActionState(pendingAction: action);
@@ -29,9 +28,9 @@ class RemoteActionsController extends StateNotifier<RemoteActionState> {
       await repository.sendAction(vehicle.vin, action);
       state = const RemoteActionState();
       // Relecture de l'etat (la voiture peut mettre un moment a le refleter).
-      if (action == VehicleAction.hvacStart || action == VehicleAction.hvacStop) _ref.invalidate(hvacStatusProvider);
+      if (action == VehicleAction.hvacStart || action == VehicleAction.hvacStop) ref.invalidate(hvacStatusProvider);
       if (action == VehicleAction.chargeStart || action == VehicleAction.chargePause) {
-        _ref.invalidate(batteryStatusProvider);
+        ref.invalidate(batteryStatusProvider);
       }
     } on ApiException catch (e) {
       state = RemoteActionState(error: e.message);
@@ -40,6 +39,4 @@ class RemoteActionsController extends StateNotifier<RemoteActionState> {
 }
 
 final remoteActionsControllerProvider =
-    StateNotifierProvider<RemoteActionsController, RemoteActionState>((ref) {
-  return RemoteActionsController(ref);
-});
+    NotifierProvider<RemoteActionsController, RemoteActionState>(RemoteActionsController.new);

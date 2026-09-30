@@ -2,7 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Onglet affiche : partage pour permettre a un ecran d'en ouvrir un autre
 /// (ex. le resume de pilotage de l'onglet Etat ouvre l'onglet Pilotage).
-final homeTabProvider = StateProvider<int>((ref) => 0);
+final homeTabProvider = NotifierProvider<HomeTabController, int>(HomeTabController.new);
+
+class HomeTabController extends Notifier<int> {
+  @override
+  int build() => HomeTab.status;
+
+  void select(int tab) => state = tab;
+}
 
 /// Index des onglets, dans l'ordre de la barre de navigation.
 abstract final class HomeTab {

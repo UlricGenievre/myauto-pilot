@@ -19,12 +19,12 @@ class PreviewCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final soc = ref.watch(batteryStatusProvider).valueOrNull?.batteryLevel;
+    final soc = ref.watch(batteryStatusProvider).value?.batteryLevel;
     final now = DateTime.now();
     final planner = ChargePlanner(config);
     final inForce = planner.commandInForce(now, socPercent: soc);
     final upcoming = planner.upcomingCommand(now, socPercent: soc);
-    final sent = config.enabled ? ref.watch(pilotStateProvider).valueOrNull?.sent : null;
+    final sent = config.enabled ? ref.watch(pilotStateProvider).value?.sent : null;
     final inForceSent = inForce != null && (sent?.covers(inForce, config.fingerprint) ?? false);
 
     return DashboardCard(

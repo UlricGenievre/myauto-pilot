@@ -149,7 +149,7 @@ class _PermissionWarningsState extends ConsumerState<_PermissionWarnings> {
 
   Future<void> _recheck() async {
     ref.invalidate(notificationsAllowedProvider);
-    final exactBefore = ref.read(exactAlarmsAllowedProvider).valueOrNull;
+    final exactBefore = ref.read(exactAlarmsAllowedProvider).value;
     ref.invalidate(exactAlarmsAllowedProvider);
     final exactNow = await ref.read(exactAlarmsAllowedProvider.future);
     if (exactNow && exactBefore == false) await refreshPilot(ref.invalidate);
@@ -157,8 +157,8 @@ class _PermissionWarningsState extends ConsumerState<_PermissionWarnings> {
 
   @override
   Widget build(BuildContext context) {
-    final notifications = ref.watch(notificationsAllowedProvider).valueOrNull;
-    final exactAlarms = ref.watch(exactAlarmsAllowedProvider).valueOrNull;
+    final notifications = ref.watch(notificationsAllowedProvider).value;
+    final exactAlarms = ref.watch(exactAlarmsAllowedProvider).value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -217,7 +217,7 @@ class _PilotStatus extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(pilotStateProvider).valueOrNull;
+    final state = ref.watch(pilotStateProvider).value;
     if (state == null) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
     final pending = state.pendingId;
 

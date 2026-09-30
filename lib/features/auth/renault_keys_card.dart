@@ -71,7 +71,7 @@ class _RenaultKeysCardState extends ConsumerState<RenaultKeysCard> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(_apiSettingsProvider).valueOrNull;
+    final settings = ref.watch(_apiSettingsProvider).value;
     return DashboardCard(
       title: 'Clés Renault',
       icon: Icons.key_outlined,

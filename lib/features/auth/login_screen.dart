@@ -28,7 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _submit() {
-    final locales = ref.read(renaultLocalesProvider).valueOrNull;
+    final locales = ref.read(renaultLocalesProvider).value;
     if (locales == null || !_formKey.currentState!.validate()) return;
     ref
         .read(authControllerProvider.notifier)

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 
 import '../../background/pilot_runtime.dart';
 import '../../core/charge_plan/pilot_state.dart';
@@ -30,7 +31,7 @@ class ChargePlanConfigController extends AsyncNotifier<ChargePlanConfig> {
   /// le pilote (reprogrammation des reveils) apres un court delai, pour ne
   /// pas le faire a chaque cran d'un curseur.
   Future<void> edit(ChargePlanConfig Function(ChargePlanConfig current) change) async {
-    final current = state.valueOrNull ?? const ChargePlanConfig();
+    final current = state.value ?? const ChargePlanConfig();
     final updated = change(current);
     state = AsyncData(updated);
     await ref.read(chargePlanStorageProvider).save(updated);
@@ -54,7 +55,7 @@ final exactAlarmsAllowedProvider = FutureProvider.autoDispose<bool>((ref) => exa
 
 /// Passage du pilote depuis l'app, puis relecture de son etat.
 /// [invalidate] : `ref.invalidate` d'un `Ref` ou d'un `WidgetRef`.
-Future<void> refreshPilot(void Function(ProviderOrFamily provider) invalidate) async {
+Future<void> refreshPilot(void Function(ProviderOrFamily provider, {bool asReload}) invalidate) async {
   try {
     await runPilotTick();
   } catch (error) {

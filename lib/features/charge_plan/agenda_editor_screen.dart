@@ -16,7 +16,7 @@ class AgendaEditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(chargePlanConfigProvider).valueOrNull;
+    final config = ref.watch(chargePlanConfigProvider).value;
     final agenda = config?.agendas.where((a) => a.id == agendaId).firstOrNull;
 
     if (agenda == null) {

@@ -152,7 +152,7 @@ class _WriteTestCardState extends ConsumerState<WriteTestCard> {
 
   Future<void> _sendComputed() async {
     final index = _programIndex!;
-    final soc = ref.read(batteryStatusProvider).valueOrNull?.batteryLevel;
+    final soc = ref.read(batteryStatusProvider).value?.batteryLevel;
     final planner = ChargePlanner(widget.config);
     final now = DateTime.now();
     final command = planner.commandInForce(now, socPercent: soc) ?? planner.upcomingCommand(now, socPercent: soc);

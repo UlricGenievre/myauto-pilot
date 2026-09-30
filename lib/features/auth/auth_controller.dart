@@ -44,12 +44,14 @@ class AuthUnauthenticated extends AuthState {
   final String? error;
 }
 
-class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repository) : super(const AuthInitial()) {
-    _tryRestoreSession();
-  }
+class AuthController extends Notifier<AuthState> {
+  AuthRepository get _repository => ref.read(authRepositoryProvider);
 
-  final AuthRepository _repository;
+  @override
+  AuthState build() {
+    _tryRestoreSession();
+    return const AuthInitial();
+  }
 
   /// Reutilise le refresh en cours s'il y en a deja un : sans ca, plusieurs
   /// appels Kamereon qui expirent au meme moment (cas frequent, l'app tire
@@ -102,8 +104,6 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
-});
+final authControllerProvider = NotifierProvider<AuthController, AuthState>(AuthController.new);
 
 final demoModeProvider = Provider<bool>((ref) => ref.watch(authControllerProvider) is AuthDemo);

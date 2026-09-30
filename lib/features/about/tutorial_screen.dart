@@ -417,7 +417,7 @@ class _PermissionsIllustrationState extends ConsumerState<_PermissionsIllustrati
             icon: Icons.notifications_outlined,
             title: 'Notifications',
             description: 'Pour vous proposer chaque envoi et vous en donner le résultat.',
-            allowed: ref.watch(notificationsAllowedProvider).valueOrNull,
+            allowed: ref.watch(notificationsAllowedProvider).value,
             onRequest: () async {
               await requestNotifications();
               _recheck();
@@ -428,7 +428,7 @@ class _PermissionsIllustrationState extends ConsumerState<_PermissionsIllustrati
             icon: Icons.alarm_rounded,
             title: 'Alarmes et rappels',
             description: 'Pour envoyer chaque plage à l\'heure prévue, même téléphone en veille.',
-            allowed: ref.watch(exactAlarmsAllowedProvider).valueOrNull,
+            allowed: ref.watch(exactAlarmsAllowedProvider).value,
             onRequest: () async {
               await requestExactAlarms();
               _recheck();

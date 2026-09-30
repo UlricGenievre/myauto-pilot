@@ -28,7 +28,7 @@ class RemoteActionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(remoteActionsControllerProvider);
     final controller = ref.read(remoteActionsControllerProvider.notifier);
-    final hvac = ref.watch(hvacStatusProvider).valueOrNull;
+    final hvac = ref.watch(hvacStatusProvider).value;
     final hvacText = _hvacText(hvac);
 
     return RefreshIndicator(
