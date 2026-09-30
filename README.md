@@ -1,5 +1,9 @@
 # MyAuto Pilot
 
+[![CI](https://github.com/UlricGenievre/myauto-pilot/actions/workflows/ci.yml/badge.svg)](https://github.com/UlricGenievre/myauto-pilot/actions/workflows/ci.yml)
+[![Dernière version](https://img.shields.io/github/v/release/UlricGenievre/myauto-pilot?label=version)](https://github.com/UlricGenievre/myauto-pilot/releases/latest)
+[![Licence GPL-3.0](https://img.shields.io/github/license/UlricGenievre/myauto-pilot?label=licence)](LICENSE)
+
 **Pilotage de la charge à domicile pour les véhicules électriques Renault,
 aligné sur vos vraies heures creuses.** Application Android indépendante et
 non officielle.
