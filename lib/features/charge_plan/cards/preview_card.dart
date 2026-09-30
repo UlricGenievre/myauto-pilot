@@ -71,12 +71,14 @@ class _CommandSummary extends StatelessWidget {
         Text(label.toUpperCase(), style: hintStyle.copyWith(letterSpacing: 0.8, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Text(window, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 2),
-        Text(
-          'Prête à ${formatDayTime(command.readyAt)}'
-          '${target != null ? ' · objectif ${target.targetPercent} %${target.isOneOff ? ' (exceptionnel)' : ''}' : ''}'
-          '${command.climate ? ' · climatisée à ${command.climateTemperature} °C' : ''}',
-        ),
+        if (!command.defaultReadyAt) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Prête à ${formatDayTime(command.readyAt)}'
+            '${target != null ? ' · objectif ${target.targetPercent} %${target.isOneOff ? ' (exceptionnel)' : ''}' : ''}'
+            '${command.climate ? ' · climatisée à ${command.climateTemperature} °C' : ''}',
+          ),
+        ],
         const SizedBox(height: 2),
         Text(
           sent ? 'Envoyé ${formatDayTime(command.pushAt, separator: ' à ')}' : 'Envoi ${formatDayTime(command.pushAt)}',

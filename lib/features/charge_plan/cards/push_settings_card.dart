@@ -49,7 +49,7 @@ class _PushSettingsCardState extends State<PushSettingsCard> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Sans objectif, l\'heure « prête à » envoyée à la voiture est fixée 1 h avant l\'envoi, '
+            'Sans objectif, l\'heure « prête à » envoyée à la voiture est fixée à 12:00 la veille de l\'envoi, '
             'active ce seul jour : déjà passée à la réception, elle n\'est jamais atteinte.',
             style: hintStyle,
           ),

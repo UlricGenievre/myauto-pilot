@@ -311,7 +311,8 @@ class ChargePilot {
       final programs = reread.programs;
       final climateApplied = programIndex >= programs.length ||
           programs[programIndex].kind.includesClimate == command.climate;
-      final body = 'Plage appliquée : ${_window(command)}, prête à ${_hm(command.readyAt)}'
+      final body = 'Plage appliquée : ${_window(command)}'
+          '${command.defaultReadyAt ? '' : ', prête à ${_hm(command.readyAt)}'}'
           '${command.climate && climateApplied ? ', habitacle climatisé${_temperature(command)}' : ''}.'
           '${climateApplied ? '' : ' La voiture n\'a pas retenu la climatisation.'}';
       await platform.showResult('Plage envoyée', body);
@@ -360,9 +361,10 @@ class ChargePilot {
     final target = command.target;
     return [
       'Plage ${_window(command)}',
-      'Prête ${_dayWord(command.readyAt, now)} à ${_hm(command.readyAt)}'
-          '${target != null ? ' (objectif ${target.targetPercent} %)' : ''}'
-          '${command.climate ? ', habitacle climatisé${_temperature(command)}' : ''}',
+      if (!command.defaultReadyAt)
+        'Prête ${_dayWord(command.readyAt, now)} à ${_hm(command.readyAt)}'
+            '${target != null ? ' (objectif ${target.targetPercent} %)' : ''}'
+            '${command.climate ? ', habitacle climatisé${_temperature(command)}' : ''}',
       if (command.extendedMinutes > 0) 'Élargie de ${command.extendedMinutes} min hors heures creuses',
       if (command.note != null) command.note!,
     ].join('\n');

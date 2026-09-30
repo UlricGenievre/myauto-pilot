@@ -75,15 +75,16 @@ void main() {
   });
 
   group('commandes', () {
-    test('plage normale : envoi 4 h avant, pret a = 1 h avant l\'envoi, ce seul jour', () {
+    test('plage normale : envoi 4 h avant, pret a = 12:00 la veille de l\'envoi, ce seul jour', () {
       final cmd = ChargePlanner(config()).commandInForce(at(22, 9, 30))!; // mardi
       expect(cmd.kind, ChargeCommandKind.window);
       expect(cmd.windowStart, at(22, 13));
       expect(cmd.durationMinutes, 180);
       expect(cmd.pushAt, at(22, 9));
-      expect(cmd.readyAt, at(22, 8)); // envoi 09:00
-      expect(cmd.readyDay, 2);
+      expect(cmd.readyAt, at(21, 12)); // envoi mardi 09:00
+      expect(cmd.readyDay, 1);
       expect(cmd.target, isNull);
+      expect(cmd.defaultReadyAt, isTrue);
     });
 
     test('ne remplace pas une plage en cours (envoi a la fin de la precedente)', () {
@@ -94,14 +95,14 @@ void main() {
       expect(second.pushAt, at(23, 7));
     });
 
-    test('veille de journee HC complete : 00:00-12:00, pret a 1 h avant l\'envoi', () {
+    test('veille de journee HC complete : 00:00-12:00, pret a 12:00 la veille de l\'envoi', () {
       final cmd = ChargePlanner(config()).upcomingCommand(at(25, 18))!; // vendredi soir
       expect(cmd.kind, ChargeCommandKind.allDayMorning);
       expect(cmd.pushAt, at(25, 20));
       expect(cmd.windowStart, at(26, 0));
       expect(cmd.durationMinutes, 720);
-      expect(cmd.readyAt, at(25, 19)); // envoi vendredi 20:00
-      expect(cmd.readyDay, 5);
+      expect(cmd.readyAt, at(24, 12)); // envoi vendredi 20:00
+      expect(cmd.readyDay, 4);
     });
 
     test('journee HC complete vers 10:00 : 00:00 + 1440 min', () {
@@ -110,8 +111,8 @@ void main() {
       expect(cmd.pushAt, at(26, 10));
       expect(cmd.chargeTimeStart.format(), '00:00');
       expect(cmd.durationMinutes, 1440);
-      expect(cmd.readyAt, at(26, 9)); // 1 h avant l'envoi, samedi seulement
-      expect(cmd.readyDay, 6);
+      expect(cmd.readyAt, at(25, 12)); // veille de l'envoi, vendredi seulement
+      expect(cmd.readyDay, 5);
       // Aucune autre commande pendant le reste du bloc (dimanche, lundi).
       expect(ChargePlanner(config()).commandInForce(at(27, 15))!.id, cmd.id);
     });
@@ -174,7 +175,7 @@ void main() {
       final cmd = ChargePlanner(cfg).upcomingCommand(at(22, 20), socPercent: 70)!;
       expect(cmd.windowStart, at(23, 1));
       expect(cmd.target, isNull);
-      expect(cmd.readyAt, at(22, 20)); // envoi mardi 21:00
+      expect(cmd.readyAt, at(21, 12)); // envoi mardi 21:00
     });
 
     test('capacite inconnue : pas d\'elargissement, note explicative', () {
@@ -192,16 +193,16 @@ void main() {
       final cmd = ChargePlanner(cfg).upcomingCommand(at(22, 10, 30))!; // mardi
       expect(cmd.windowStart, at(22, 13));
       expect(cmd.pushAt, at(22, 11));
-      expect(cmd.readyAt, at(22, 10));
+      expect(cmd.readyAt, at(21, 12));
     });
 
-    test('exemple de l\'utilisateur : plage de nuit envoyee mercredi 21:15 -> pret a mercredi 20:15', () {
+    test('exemple de l\'utilisateur : plage de nuit envoyee mercredi 21:15 -> pret a mardi 12:00', () {
       final cal = ChargeCalendar(days: {4: DaySchedule(windows: [w('01:15', '06:15')])});
       final cmd = ChargePlanner(ChargePlanConfig(calendar: cal)).upcomingCommand(at(23, 18))!; // mercredi
       expect(cmd.windowStart, at(24, 1, 15));
       expect(cmd.pushAt, at(23, 21, 15));
-      expect(cmd.readyAt, at(23, 20, 15));
-      expect(cmd.readyDay, 3);
+      expect(cmd.readyAt, at(22, 12));
+      expect(cmd.readyDay, 2);
     });
 
     test('delai d\'envoi reglable aussi pour la veille d\'une journee HC complete', () {

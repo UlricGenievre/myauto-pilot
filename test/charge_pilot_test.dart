@@ -136,17 +136,19 @@ void main() {
     expect(sent['chargeTimeStart'], '14:05');
     expect(sent['chargeDuration'], 180);
     final program = (sent['programs'] as List).first as Map<String, dynamic>;
-    // Sans objectif : 1 h avant l'envoi de cette plage (mardi 10:05).
-    expect(program['programDepartureTime'], '09:05:00');
+    // Sans objectif : 12:00 la veille de l'envoi de cette plage (mardi 10:05).
+    expect(program['programDepartureTime'], '12:00:00');
     expect(program['programActivationStatus'], isTrue);
-    // Programme actif le seul jour de l'heure "pret a" (mardi).
-    expect(program['programActivationTuesday'], isTrue);
-    for (final day in ['Monday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
+    // Programme actif le seul jour de l'heure "pret a" (lundi).
+    expect(program['programActivationMonday'], isTrue);
+    for (final day in ['Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
       expect(program['programActivation$day'], isFalse, reason: day);
     }
     expect(store.state.sentId, 'window-20260922T1405');
     expect(store.state.lastResultOk, isTrue);
     expect(platform.results, ['Plage envoyée']);
+    // Heure par defaut arbitraire : jamais mentionnee.
+    expect(store.state.lastResult, isNot(contains('rête')));
 
     // Deja envoyee : un nouveau passage ne repropose rien.
     await pilot(store, platform, vehicle, now).tick();
@@ -164,6 +166,15 @@ void main() {
 
     expect(platform.confirmations, hasLength(1));
     expect(store.state.pendingId, isNull);
+  });
+
+  test('texte de confirmation : heure "pret a" seulement pour un objectif', () {
+    final p = pilot(MemoryStore(pilotConfig(safeMode: true)), FakePlatform(), null, at(22, 20));
+    final planner = ChargePlanner(pilotConfig(safeMode: true));
+    expect(p.describe(planner.upcomingCommand(at(22, 20))!), isNot(contains('Prête')));
+    final withTarget = pilotConfig(safeMode: true)
+        .copyWith(oneOffTarget: OneOffTarget(targetPercent: 80, readyAt: at(23, 7, 15)));
+    expect(p.describe(ChargePlanner(withTarget).upcomingCommand(at(22, 20))!), contains('Prête demain à 07:15'));
   });
 
   test('confirmation tardive d\'une plage depassee : expiree, rien n\'est envoye', () async {
@@ -283,6 +294,9 @@ void main() {
       await pilot(store, platform, vehicle, now).confirm('window-20260923T0115');
       await pilot(store, platform, vehicle, now).executeConfirmed();
       expect(vehicle.writes, hasLength(1));
+
+      // Commande confirmee reconstruite sans son objectif : heure affichee.
+      expect(store.state.lastResult, contains('prête à 07:15'));
 
       store.config = withTarget(safeMode: true, target: false);
       await pilot(store, platform, vehicle, now).tick();

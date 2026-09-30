@@ -66,6 +66,7 @@ class ChargeCommand {
     required this.windowStart,
     required this.durationMinutes,
     required this.readyAt,
+    this.defaultReadyAt = false,
     this.target,
     this._climate,
     this._climateTemperature,
@@ -91,6 +92,11 @@ class ChargeCommand {
 
   /// Heure "pret a" a mettre dans le programme dedie.
   final DateTime readyAt;
+
+  /// [readyAt] est l'heure par defaut (sans objectif) : arbitraire, jamais
+  /// atteinte, donc jamais affichee (visible seulement dans les programmes
+  /// de la voiture).
+  final bool defaultReadyAt;
 
   /// Objectif servi par cette plage (null = heure "pret a" par defaut).
   final EffectiveTarget? target;
@@ -135,6 +141,7 @@ class ChargeCommand {
         windowStart: windowStart,
         durationMinutes: durationMinutes,
         readyAt: readyAt,
+        defaultReadyAt: defaultReadyAt,
         target: target,
         climate: climate,
         climateTemperature: climateTemperature,
@@ -167,11 +174,10 @@ class ChargePlanner {
   /// Fin de la plage envoyee la veille d'une journee HC complete.
   static final allDayMorningEnd = ClockTime.hm(12, 0);
 
-  /// Sans objectif, heure "pret a" = ce delai avant l'envoi lui-meme, le
-  /// jour de l'envoi (programme actif ce seul jour) : deja passee quand la
-  /// voiture la recoit, donc jamais atteinte. Meme regle pour toutes les
-  /// plages.
-  static const defaultReadyBeforePush = Duration(hours: 1);
+  /// Sans objectif, heure "pret a" = cette heure la veille du jour de
+  /// l'envoi (programme actif ce seul jour) : deja passee quand la voiture
+  /// la recoit, donc jamais atteinte. Meme regle pour toutes les plages.
+  static final defaultReadyTime = ClockTime.hm(12, 0);
 
   /// Marge avant la fin d'un bloc HC complet pour envoyer la plage suivante,
   /// afin que la plage 24 h ne deborde jamais en heures pleines.
@@ -353,7 +359,8 @@ class ChargePlanner {
         pushAt: morningPushAt,
         windowStart: morningStart,
         durationMinutes: morningEnd.difference(morningStart).inMinutes,
-        readyAt: morningTarget?.readyAt ?? morningPushAt.subtract(defaultReadyBeforePush),
+        readyAt: morningTarget?.readyAt ?? _defaultReadyAt(morningPushAt),
+        defaultReadyAt: morningTarget == null,
         target: morningTarget,
       ),
       ChargeCommand(
@@ -362,7 +369,8 @@ class ChargePlanner {
         pushAt: fullPushAt,
         windowStart: day,
         durationMinutes: 1440,
-        readyAt: fullTarget?.readyAt ?? fullPushAt.subtract(defaultReadyBeforePush),
+        readyAt: fullTarget?.readyAt ?? _defaultReadyAt(fullPushAt),
+        defaultReadyAt: fullTarget == null,
         target: fullTarget,
       ),
     ];
@@ -451,7 +459,7 @@ class ChargePlanner {
     // L'objectif ne pilote l'heure "pret a" que si aucune autre plage ne le
     // precede ; sinon c'est une plage ulterieure qui le servira.
     final servesTarget = target != null && (next == null || !next.start.isBefore(target.readyAt));
-    final readyAt = servesTarget ? target.readyAt : pushAt.subtract(defaultReadyBeforePush);
+    final readyAt = servesTarget ? target.readyAt : _defaultReadyAt(pushAt);
 
     return ChargeCommand(
       id: 'window-${_key(occ.start)}',
@@ -460,6 +468,7 @@ class ChargePlanner {
       windowStart: windowStart,
       durationMinutes: duration,
       readyAt: readyAt,
+      defaultReadyAt: !servesTarget,
       target: servesTarget ? target : null,
       extendedMinutes: extendedMinutes,
       note: note,
@@ -505,6 +514,10 @@ class ChargePlanner {
 
   static DateTime _startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
   static DateTime _nextDay(DateTime d) => DateTime(d.year, d.month, d.day + 1);
+
+  /// Heure "pret a" sans objectif pour une plage envoyee a [pushAt].
+  static DateTime _defaultReadyAt(DateTime pushAt) =>
+      defaultReadyTime.onDay(DateTime(pushAt.year, pushAt.month, pushAt.day - 1));
   static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
   static DateTime _maxDate(DateTime a, DateTime b) => a.isAfter(b) ? a : b;
   static Duration _minDuration(Duration a, Duration b) => a < b ? a : b;

@@ -11,6 +11,7 @@ class CommandMark {
     this.windowStart,
     this.durationMinutes,
     this.readyAt,
+    this.defaultReadyAt = false,
     this.climate = false,
     this.climateTemperature,
   });
@@ -23,6 +24,7 @@ class CommandMark {
           windowStart: command.windowStart,
           durationMinutes: command.durationMinutes,
           readyAt: command.readyAt,
+          defaultReadyAt: command.defaultReadyAt,
           climate: command.climate,
           climateTemperature: command.climateTemperature,
         );
@@ -36,6 +38,7 @@ class CommandMark {
   final DateTime? windowStart;
   final int? durationMinutes;
   final DateTime? readyAt;
+  final bool defaultReadyAt;
   final bool climate;
   final int? climateTemperature;
 
@@ -50,6 +53,7 @@ class CommandMark {
           windowStart: windowStart!,
           durationMinutes: durationMinutes!,
           readyAt: readyAt!,
+          defaultReadyAt: defaultReadyAt,
           climate: climate,
           climateTemperature: climateTemperature,
         )
@@ -70,6 +74,7 @@ class CommandMark {
         'windowStart': windowStart?.toIso8601String(),
         'durationMinutes': durationMinutes,
         'readyAt': readyAt?.toIso8601String(),
+        if (defaultReadyAt) 'defaultReadyAt': true,
         if (climate) 'climate': true,
         if (climateTemperature != null) 'climateTemperature': climateTemperature,
       };
@@ -85,6 +90,7 @@ class CommandMark {
       windowStart: DateTime.tryParse(json['windowStart'] as String? ?? ''),
       durationMinutes: json['durationMinutes'] as int?,
       readyAt: DateTime.tryParse(json['readyAt'] as String? ?? ''),
+      defaultReadyAt: json['defaultReadyAt'] as bool? ?? false,
       climate: json['climate'] as bool? ?? false,
       climateTemperature: json['climateTemperature'] as int?,
     );
