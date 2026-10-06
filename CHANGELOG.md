@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+- Seuils de charge (Réglages › Seuils de charge), gérés par l'application :
+  la voiture n'applique pas ses propres seuils.
+- Charge maximale : chaque plage est raccourcie pour s'arrêter vers ce
+  niveau, d'après la batterie au moment de l'envoi ; déjà atteint, la
+  voiture ne charge pas. Un objectif plus haut (agenda ou exceptionnel)
+  passe outre. Journées entièrement en heures creuses : une plage
+  raccourcie est envoyée chaque jour à 10:00.
+- Charge minimale : batterie en dessous, voiture branchée et pas en
+  charge, l'application propose une charge immédiate jusqu'à ce niveau
+  (notification et onglet Pilotage). Si elle atteint la plage d'heures
+  creuses suivante, elle se prolonge jusqu'à sa fin ; sinon, la plage
+  d'heures creuses est renvoyée automatiquement à la fin de la charge.
+
 ## 0.2.3
 
 - Pilotage sans objectif : l'heure « prête à » que la voiture exige pour
