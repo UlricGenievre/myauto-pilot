@@ -54,6 +54,18 @@ enum ChargeCommandKind {
 
   /// Journee HC complete, vers 10:00 : plage 00:00 -> 00:00 (1440 min).
   allDayFull,
+
+  /// Charge immediate jusqu'a la charge minimale, a la demande.
+  minimumBoost,
+}
+
+/// Charge immediate jusqu'a la charge minimale ([command]), eventuellement
+/// prolongee jusqu'a la fin de la plage [mergedWith] qu'elle atteint.
+class MinimumBoostPlan {
+  const MinimumBoostPlan({required this.command, this.mergedWith});
+
+  final ChargeCommand command;
+  final ChargeCommand? mergedWith;
 }
 
 /// Ce que l'app doit envoyer a la voiture (plage unique + heure "pret a" du
@@ -72,6 +84,8 @@ class ChargeCommand {
     this._climateTemperature,
     this.extendedMinutes = 0,
     this.note,
+    this.maxPercent,
+    this.maxReached = false,
     DateTime? validUntil,
   }) : validUntil = validUntil ?? windowStart;
 
@@ -117,6 +131,14 @@ class ChargeCommand {
   /// Explication a afficher (objectif inatteignable, donnees manquantes...).
   final String? note;
 
+  /// Plage raccourcie pour s'arreter vers ce niveau (charge maximale, ou
+  /// objectif plus haut). Null : plage non raccourcie.
+  final int? maxPercent;
+
+  /// Niveau [maxPercent] deja atteint : plage de 5 min deja passee a
+  /// l'envoi, donc pas de charge.
+  final bool maxReached;
+
   DateTime get windowEnd => windowStart.add(Duration(minutes: durationMinutes));
 
   /// Valeur de `chargeTimeStart` ("HH:MM").
@@ -147,6 +169,8 @@ class ChargeCommand {
         climateTemperature: climateTemperature,
         extendedMinutes: extendedMinutes,
         note: note,
+        maxPercent: maxPercent,
+        maxReached: maxReached,
         validUntil: validUntil ?? this.validUntil,
       );
 
@@ -189,8 +213,13 @@ class ChargePlanner {
   static const slowChargeFromPercent = 95;
   static const slowChargePowerDivisor = 2;
 
+  /// Charge maximale deja atteinte : plage de cette duree, terminee a
+  /// l'heure d'envoi (jamais atteinte avant l'envoi suivant).
+  static const maxReachedWindow = Duration(minutes: 5);
+
   static const _horizonDays = 9;
   static const _roundingMinutes = 15;
+  static const _maxRoundingMinutes = 5;
 
   // --- Occurrences de plages -------------------------------------------------
 
@@ -308,6 +337,58 @@ class ChargePlanner {
     return null;
   }
 
+  /// Charge immediate de [socPercent] jusqu'a la charge minimale : plage
+  /// deja commencee (la voiture charge des reception), assez longue pour
+  /// l'atteindre. Si elle atteint le debut de la plage suivante, elle est
+  /// prolongee jusqu'a sa fin, sans depasser la charge maximale (sauf
+  /// objectif). Null sans charge minimale, au-dessus, ou sans capacite/
+  /// puissance.
+  MinimumBoostPlan? minimumBoost(DateTime now, {required int socPercent}) {
+    final min = config.minChargePercent;
+    if (min == null || socPercent >= min) return null;
+    final needed = _neededMinutes(min, socPercent);
+    if (needed == null) return null;
+    final from = _floorTo(now, 1);
+    final start = from.subtract(maxReachedWindow);
+    var end = from.add(Duration(minutes: _roundUp(needed, _maxRoundingMinutes)));
+
+    ChargeCommand? merged;
+    for (final command in commands(now, socPercent: socPercent)) {
+      if (!command.windowStart.isAfter(now)) continue;
+      if (!end.isBefore(command.windowStart)) merged = command;
+      break;
+    }
+    if (merged != null) {
+      var mergedEnd = merged.windowEnd;
+      final cap = _capPercent(merged.target);
+      final toCap = cap == null ? null : _neededMinutes(cap, socPercent);
+      if (toCap != null) {
+        final capEnd = from.add(Duration(minutes: _roundUp(toCap, _maxRoundingMinutes)));
+        if (capEnd.isBefore(mergedEnd)) mergedEnd = capEnd;
+      }
+      if (mergedEnd.isAfter(end)) end = mergedEnd;
+    }
+
+    var duration = end.difference(start).inMinutes;
+    if (duration > 1440) duration = 1440;
+    return MinimumBoostPlan(
+      mergedWith: merged,
+      command: ChargeCommand(
+        id: 'boost-${_key(now)}',
+        kind: ChargeCommandKind.minimumBoost,
+        pushAt: now,
+        windowStart: start,
+        durationMinutes: duration,
+        readyAt: merged?.readyAt ?? _defaultReadyAt(now),
+        defaultReadyAt: merged?.defaultReadyAt ?? true,
+        target: merged?.target,
+        climate: merged?.climate ?? false,
+        climateTemperature: merged?.climateTemperature,
+        validUntil: start.add(Duration(minutes: duration)),
+      ),
+    );
+  }
+
   /// Toutes les commandes de l'horizon, dans l'ordre d'envoi.
   List<ChargeCommand> commands(DateTime now, {int? socPercent}) {
     final horizonEnd = now.add(const Duration(days: _horizonDays));
@@ -320,7 +401,7 @@ class ChargePlanner {
       final previous = i > 0 ? occs[i - 1] : null;
       final next = i + 1 < occs.length ? occs[i + 1] : null;
       if (occ.allDay) {
-        result.addAll(_allDayCommands(occ, previous, allTargets));
+        result.addAll(_allDayCommands(occ, previous, allTargets, socPercent));
       } else {
         result.add(_windowCommand(occ, previous, next, occs.sublist(i), allTargets, socPercent));
       }
@@ -338,11 +419,11 @@ class ChargePlanner {
     WindowOccurrence block,
     WindowOccurrence? previous,
     List<EffectiveTarget> allTargets,
+    int? socPercent,
   ) {
     final day = block.start;
     final morningStart = block.leadInStart ?? day;
     final morningEnd = allDayMorningEnd.onDay(day);
-    final fullPushAt = allDayFullPushTime.onDay(day);
 
     var morningPushAt = morningStart.subtract(pushLead);
     if (previous != null && !previous.allDay && previous.end.isAfter(morningPushAt)) {
@@ -350,31 +431,68 @@ class ChargePlanner {
     }
 
     final morningTarget = _firstTarget(allTargets, after: morningStart, notAfter: morningEnd);
-    final fullTarget = _firstTarget(allTargets, after: fullPushAt, notAfter: _nextDay(day));
-
-    return [
+    final morning = _capped(
+      windowStart: morningStart,
+      windowEnd: morningEnd,
+      pushAt: morningPushAt,
+      capPercent: _capPercent(morningTarget),
+      socPercent: socPercent,
+    );
+    final result = [
       ChargeCommand(
         id: 'allday-morning-${_key(day)}',
         kind: ChargeCommandKind.allDayMorning,
         pushAt: morningPushAt,
-        windowStart: morningStart,
-        durationMinutes: morningEnd.difference(morningStart).inMinutes,
+        windowStart: morning.start,
+        durationMinutes: morning.end.difference(morning.start).inMinutes,
         readyAt: morningTarget?.readyAt ?? _defaultReadyAt(morningPushAt),
         defaultReadyAt: morningTarget == null,
         target: morningTarget,
-      ),
-      ChargeCommand(
-        id: 'allday-full-${_key(day)}',
-        kind: ChargeCommandKind.allDayFull,
-        pushAt: fullPushAt,
-        windowStart: day,
-        durationMinutes: 1440,
-        readyAt: fullTarget?.readyAt ?? _defaultReadyAt(fullPushAt),
-        defaultReadyAt: fullTarget == null,
-        target: fullTarget,
+        maxPercent: morning.maxPercent,
+        maxReached: morning.reached,
+        note: morning.note,
       ),
     ];
+
+    // Sans charge maximale : une seule plage 24 h pour tout le bloc. Avec :
+    // un envoi par jour du bloc, a 10:00, raccourci d'apres le niveau du
+    // moment (une plage 24 h chargerait jusqu'a 100 % chaque nuit).
+    final days = config.maxChargePercent == null ? [day] : _daysOf(block);
+    for (var i = 0; i < days.length; i++) {
+      final pushAt = allDayFullPushTime.onDay(days[i]);
+      final last = i == days.length - 1;
+      final targetUntil = last ? block.end : allDayFullPushTime.onDay(days[i + 1]);
+      final target = _firstTarget(allTargets, after: pushAt, notAfter: config.maxChargePercent == null ? _nextDay(day) : targetUntil);
+      // Plage raccourcie : elle part de l'envoi (deja en heures creuses), pour
+      // ne pas recharger le lendemain des minuit, avant l'envoi suivant.
+      final full = _capped(
+        windowStart: pushAt,
+        windowEnd: _nextDay(days[i]),
+        pushAt: pushAt,
+        capPercent: _capPercent(target),
+        socPercent: socPercent,
+      );
+      final shortened = full.maxPercent != null;
+      result.add(ChargeCommand(
+        id: 'allday-full-${_key(days[i])}',
+        kind: ChargeCommandKind.allDayFull,
+        pushAt: pushAt,
+        windowStart: shortened ? full.start : days[i],
+        durationMinutes: shortened ? full.end.difference(full.start).inMinutes : 1440,
+        readyAt: target?.readyAt ?? _defaultReadyAt(pushAt),
+        defaultReadyAt: target == null,
+        target: target,
+        maxPercent: full.maxPercent,
+        maxReached: full.reached,
+        note: full.note,
+      ));
+    }
+    return result;
   }
+
+  static List<DateTime> _daysOf(WindowOccurrence block) => [
+        for (var d = block.start; d.isBefore(block.end); d = _nextDay(d)) d,
+      ];
 
   ChargeCommand _windowCommand(
     WindowOccurrence occ,
@@ -399,7 +517,8 @@ class ChargePlanner {
       // l'avancer, jusqu'a l'heure d'envoi.
       final latest = previous.end.subtract(allDayExitMargin);
       if (latest.isBefore(pushAt)) pushAt = latest;
-      final floor = allDayFullPushTime.onDay(previous.start).add(const Duration(minutes: _roundingMinutes));
+      final lastDay = DateTime(previous.end.year, previous.end.month, previous.end.day - 1);
+      final floor = allDayFullPushTime.onDay(lastDay).add(const Duration(minutes: _roundingMinutes));
       if (pushAt.isBefore(floor)) pushAt = floor;
       earliestStart = _floorTo(pushAt, _roundingMinutes);
     } else if (previous != null && previous.end.isAfter(pushAt)) {
@@ -453,13 +572,35 @@ class ChargePlanner {
       }
     }
 
-    var duration = windowEnd.difference(windowStart).inMinutes;
-    if (duration > 1440) duration = 1440;
-
     // L'objectif ne pilote l'heure "pret a" que si aucune autre plage ne le
     // precede ; sinon c'est une plage ulterieure qui le servira.
     final servesTarget = target != null && (next == null || !next.start.isBefore(target.readyAt));
     final readyAt = servesTarget ? target.readyAt : _defaultReadyAt(pushAt);
+
+    // Charge maximale : un objectif servi par cette plage passe outre. Un
+    // objectif servi plus tard aussi, si les plages suivantes ne suffisent
+    // pas a le tenir en partant de la charge maximale.
+    var capTarget = servesTarget ? target : null;
+    if (target != null && !servesTarget && next != null) {
+      final max = config.maxChargePercent;
+      final fromMax = max == null ? null : _neededMinutes(target.targetPercent, max);
+      if (fromMax != null && fromMax > _availableMinutes(fromHere.sublist(1), next.start, target.readyAt)) {
+        capTarget = target;
+      }
+    }
+    final capped = _capped(
+      windowStart: windowStart,
+      windowEnd: windowEnd,
+      pushAt: pushAt,
+      capPercent: _capPercent(capTarget),
+      socPercent: socPercent,
+    );
+    windowStart = capped.start;
+    windowEnd = capped.end;
+    if (capped.note != null && note == null) note = capped.note;
+
+    var duration = windowEnd.difference(windowStart).inMinutes;
+    if (duration > 1440) duration = 1440;
 
     return ChargeCommand(
       id: 'window-${_key(occ.start)}',
@@ -472,6 +613,60 @@ class ChargePlanner {
       target: servesTarget ? target : null,
       extendedMinutes: extendedMinutes,
       note: note,
+      maxPercent: capped.maxPercent,
+      maxReached: capped.reached,
+    );
+  }
+
+  /// Niveau auquel arreter une plage : charge maximale, ou objectif s'il
+  /// est plus haut. Null : pas de charge maximale (ou objectif a 100 %).
+  int? _capPercent(EffectiveTarget? target) {
+    final max = config.maxChargePercent;
+    if (max == null) return null;
+    final cap = target != null && target.targetPercent > max ? target.targetPercent : max;
+    return cap >= 100 ? null : cap;
+  }
+
+  /// Raccourcit [windowStart, windowEnd[ pour s'arreter vers [capPercent] :
+  /// la charge commence a [windowStart], ou a l'envoi s'il est deja passe.
+  /// Niveau deja atteint : plage de [maxReachedWindow] terminee a l'envoi.
+  ({DateTime start, DateTime end, int? maxPercent, bool reached, String? note}) _capped({
+    required DateTime windowStart,
+    required DateTime windowEnd,
+    required DateTime pushAt,
+    required int? capPercent,
+    required int? socPercent,
+  }) {
+    if (capPercent == null) return (start: windowStart, end: windowEnd, maxPercent: null, reached: false, note: null);
+    final needed = _neededMinutes(capPercent, socPercent);
+    if (needed == null) {
+      return (
+        start: windowStart,
+        end: windowEnd,
+        maxPercent: null,
+        reached: false,
+        note: 'Charge maximale non appliquée : capacité, puissance ou niveau de batterie inconnu.',
+      );
+    }
+    if (needed == 0) {
+      final end = _floorTo(pushAt, 1);
+      return (
+        start: end.subtract(maxReachedWindow),
+        end: end,
+        maxPercent: capPercent,
+        reached: true,
+        note: 'Batterie déjà à $socPercent % (maximum $capPercent %) : pas de charge.',
+      );
+    }
+    final from = _maxDate(windowStart, pushAt);
+    final end = from.add(Duration(minutes: _roundUp(needed, _maxRoundingMinutes)));
+    if (!end.isBefore(windowEnd)) return (start: windowStart, end: windowEnd, maxPercent: null, reached: false, note: null);
+    return (
+      start: from,
+      end: end,
+      maxPercent: capPercent,
+      reached: false,
+      note: 'Raccourcie pour s\'arrêter vers $capPercent %.',
     );
   }
 

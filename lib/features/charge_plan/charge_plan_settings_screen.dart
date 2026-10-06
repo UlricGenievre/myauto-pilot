@@ -9,6 +9,7 @@ import '../auth/renault_keys_card.dart';
 import 'cards/agendas_card.dart';
 import 'cards/battery_card.dart';
 import 'cards/calendar_card.dart';
+import 'cards/charge_thresholds_card.dart';
 import 'cards/dedicated_program_card.dart';
 import 'cards/push_settings_card.dart';
 import 'charge_plan_providers.dart';
@@ -43,6 +44,8 @@ class ChargePlanSettingsScreen extends ConsumerWidget {
               AgendasCard(config: config, controller: controller),
               const SizedBox(height: 16),
               BatteryCard(config: config, controller: controller),
+              const SizedBox(height: 16),
+              ChargeThresholdsCard(config: config, controller: controller),
               const SizedBox(height: 16),
               DedicatedProgramCard(config: config, controller: controller),
               const SizedBox(height: 16),

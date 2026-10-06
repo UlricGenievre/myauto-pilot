@@ -31,6 +31,9 @@ voiture, avant chaque plage, la plage de charge qui convient.
   (« Habituel », « Vacances »…) et objectif exceptionnel (« demain 7 h à
   100 % »), avec habitacle climatisé en option. Si une plage ne suffit pas,
   elle est élargie juste ce qu'il faut.
+- **Seuils de charge** : charge maximale (les plages sont raccourcies pour
+  s'arrêter vers ce niveau, sauf objectif plus haut) et charge minimale
+  (batterie en dessous, voiture branchée : charge immédiate proposée).
 - **Envoi automatique** de la plage à la voiture avant son début (délai
   réglable), à l'heure exacte, même application fermée.
 - **Mode sécurisé** (activé par défaut) : chaque envoi vous est proposé par

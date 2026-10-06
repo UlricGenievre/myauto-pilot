@@ -1,5 +1,6 @@
 import '../../features/auth/auth_repository.dart';
 import '../api/kamereon_client.dart';
+import '../models/battery_status.dart';
 import '../models/vehicle_schedule.dart';
 import 'charge_pilot.dart';
 
@@ -36,8 +37,8 @@ class KamereonPilotGateway implements PilotVehicleGateway {
   }
 
   @override
-  Future<int?> fetchSoc(String vin) async =>
-      (await _client.fetchBatteryStatus(jwt: _jwt, accountId: _accountId, vin: vin)).batteryLevel;
+  Future<BatteryStatus> fetchBattery(String vin) =>
+      _client.fetchBatteryStatus(jwt: _jwt, accountId: _accountId, vin: vin);
 
   @override
   Future<VehicleSchedule> fetchSchedule(String vin) =>

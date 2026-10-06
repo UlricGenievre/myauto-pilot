@@ -25,7 +25,7 @@ final _notifications = FlutterLocalNotificationsPlugin();
 const _channel = AndroidNotificationChannel(
   'charge_pilot',
   'Pilotage de charge',
-  description: 'Plages de charge à envoyer, résultats des envois, rappel du soir.',
+  description: 'Plages de charge à envoyer, charge immédiate jusqu\'au minimum, résultats des envois, rappel du soir.',
   importance: Importance.high,
 );
 
@@ -36,8 +36,12 @@ const _confirmationId = 100;
 const _resultId = 101;
 const _reminderId = 102;
 const _infoId = 103;
+const _minimumId = 104;
 const _actionSend = 'send';
 const _actionIgnore = 'ignore';
+const _actionMinimumStart = 'minimum_start';
+const _actionMinimumIgnore = 'minimum_ignore';
+const _minimumPayload = 'minimum';
 
 /// A appeler au demarrage de l'app (isolate principal).
 Future<void> initPilotRuntime() async {
@@ -62,6 +66,17 @@ Future<void> confirmPilotCommand(String commandId) async {
 Future<void> ignorePilotCommand(String commandId) async {
   if (!pilotSupported) return;
   await _createPilot().ignore(commandId);
+}
+
+/// Boutons "Declencher"/"Ignorer" de la charge immediate jusqu'au minimum.
+Future<void> confirmMinimumCharge() async {
+  if (!pilotSupported) return;
+  await _createPilot().confirmMinimum();
+}
+
+Future<void> ignoreMinimumCharge() async {
+  if (!pilotSupported) return;
+  await _createPilot().ignoreMinimum();
 }
 
 /// Autorisation d'afficher des notifications (Android 13+).
@@ -125,10 +140,13 @@ Future<void> pilotAlarmCallback(int alarmId) async {
   await _initBackgroundIsolate();
   final pilot = _createPilot();
   if (alarmId == PilotWake.execute.alarmId) {
+    await pilot.executeMinimum();
     await pilot.executeConfirmed();
     await pilot.tick();
   } else if (alarmId == PilotWake.evening.alarmId) {
     await pilot.eveningReminder();
+    // Aussi l'occasion de proposer une charge immediate jusqu'au minimum.
+    await pilot.tick();
   } else {
     await pilot.tick();
   }
@@ -144,6 +162,15 @@ Future<void> pilotNotificationBackground(NotificationResponse response) async {
 Future<void> _handleResponse(NotificationResponse response) async {
   final commandId = response.payload;
   if (commandId == null) return;
+  if (commandId == _minimumPayload) {
+    switch (response.actionId) {
+      case _actionMinimumStart:
+        await _createPilot().confirmMinimum();
+      case _actionMinimumIgnore:
+        await _createPilot().ignoreMinimum();
+    }
+    return;
+  }
   switch (response.actionId) {
     case _actionSend:
       await _createPilot().confirm(commandId);
@@ -221,6 +248,22 @@ class _AndroidPilotPlatform implements PilotPlatform {
 
   @override
   Future<void> showReminder(String body) => _show(_reminderId, 'Pilotage de charge', body);
+
+  @override
+  Future<void> showMinimumProposal(String body) => _show(
+        _minimumId,
+        'Batterie sous le minimum',
+        body,
+        payload: _minimumPayload,
+        actions: const [
+          AndroidNotificationAction(_actionMinimumStart, 'Déclencher'),
+          AndroidNotificationAction(_actionMinimumIgnore, 'Ignorer'),
+        ],
+        autoCancel: false,
+      );
+
+  @override
+  Future<void> dismissMinimumProposal() => _notifications.cancel(id: _minimumId);
 
   Future<void> _show(
     int id,

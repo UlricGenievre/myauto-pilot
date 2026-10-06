@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:myauto_pilot/core/charge_plan/charge_pilot.dart';
 import 'package:myauto_pilot/core/charge_plan/charge_planner.dart';
 import 'package:myauto_pilot/core/charge_plan/pilot_state.dart';
+import 'package:myauto_pilot/core/models/battery_status.dart';
 import 'package:myauto_pilot/core/models/charge_plan_config.dart';
 import 'package:myauto_pilot/core/models/vehicle_schedule.dart';
 import 'package:myauto_pilot/core/models/vehicle_support.dart';
@@ -58,23 +59,37 @@ class FakePlatform implements PilotPlatform {
   Future<void> showResult(String title, String body) async => results.add(title);
   @override
   Future<void> showReminder(String body) async {}
+
+  final minimumProposals = <String>[];
+  var minimumDismissed = 0;
+
+  @override
+  Future<void> showMinimumProposal(String body) async => minimumProposals.add(body);
+  @override
+  Future<void> dismissMinimumProposal() async => minimumDismissed++;
 }
 
 /// Voiture simulee : applique l'ecriture au bout de [applyAfterReads]
 /// relectures (ecriture asynchrone cote Renault).
 class FakeVehicle implements PilotVehicleGateway {
-  FakeVehicle({this.applyAfterReads = 1, this.failWrite = false, this.soc = 50});
+  FakeVehicle({this.applyAfterReads = 1, this.failWrite = false, this.soc = 50, this.plug = PlugState.plugged});
 
   final int applyAfterReads;
   final bool failWrite;
   int soc;
+  PlugState plug;
+  bool charging = false;
   Map<String, dynamic> _settings = realResponse();
   Map<String, dynamic>? _pending;
   var _readsSinceWrite = 0;
   final writes = <Map<String, dynamic>>[];
 
   @override
-  Future<int?> fetchSoc(String vin) async => soc;
+  Future<BatteryStatus> fetchBattery(String vin) async => BatteryStatus(
+        batteryLevel: soc,
+        plugState: plug,
+        chargeState: charging ? ChargeState.charging : ChargeState.notCharging,
+      );
 
   @override
   Future<VehicleSchedule> fetchSchedule(String vin) async {
@@ -583,6 +598,134 @@ void main() {
       final restored = ReadyTarget.fromJson(target.copyWith(climate: true, climateTemperature: 23).toJson());
       expect(restored.climate, isTrue);
       expect(restored.climateTemperature, 23);
+    });
+  });
+
+  group('Charge minimale', () {
+    // 52 kWh, 7,4 kW, minimum 35 %, envois automatiques.
+    ChargePlanConfig minConfig() => pilotConfig(safeMode: false)
+        .copyWith(batteryCapacityKwh: 52, chargePowerKw: 7.4, minChargePercent: 35, vehicleModelCode: 'XHN1CP');
+
+    test('proposee une fois, puis charge immediate et renvoi de la plage a la fin', () async {
+      final store = MemoryStore(minConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 18);
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      await pilot(store, platform, vehicle, at(22, 21, 25)).tick();
+      expect(store.state.sentId, 'window-20260923T0115');
+      expect(platform.minimumProposals, hasLength(1));
+      expect(platform.minimumProposals.single, contains('35 %'));
+
+      await pilot(store, platform, vehicle, at(22, 21, 30)).confirmMinimum();
+      expect(platform.wakes[PilotWake.execute], isNotNull);
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeMinimum();
+      // 72 min -> 75 min depuis 21:30, plage commencee 5 min avant.
+      expect(vehicle.writes.last['chargeTimeStart'], '21:25');
+      expect(vehicle.writes.last['chargeDuration'], 80);
+      expect(store.state.boost?.end, at(22, 22, 45));
+      expect(store.state.boost?.displaced?.id, 'window-20260923T0115');
+      expect(platform.wakes[PilotWake.boostEnd], at(22, 22, 45));
+
+      // Pendant la charge : la plage remplacee n'est pas renvoyee.
+      final writes = vehicle.writes.length;
+      await pilot(store, platform, vehicle, at(22, 22)).tick();
+      expect(vehicle.writes, hasLength(writes));
+
+      // Fin : renvoi sans confirmation.
+      vehicle.soc = 35;
+      await pilot(store, platform, vehicle, at(22, 22, 46)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(vehicle.writes.last['chargeDuration'], 300);
+      expect(store.state.boost, isNull);
+      expect(store.state.sentId, 'window-20260923T0115');
+    });
+
+    test('renvoi sans confirmation meme en mode securise', () async {
+      final store = MemoryStore(minConfig().copyWith(safeMode: true));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 18);
+      store.state = PilotState(
+        sent: CommandMark(
+          id: 'window-20260923T0115',
+          signature: '',
+          configFingerprint: store.config.fingerprint,
+          windowStart: at(23, 1, 15),
+          durationMinutes: 300,
+          readyAt: at(21, 12),
+          defaultReadyAt: true,
+        ),
+      );
+      await pilot(store, platform, vehicle, at(22, 21, 30)).confirmMinimum();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeMinimum();
+      vehicle.soc = 35;
+      await pilot(store, platform, vehicle, at(22, 22, 46)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(platform.confirmations, isEmpty);
+    });
+
+    test('atteint la plage suivante : prolongee, plage comptee comme envoyee', () async {
+      final store = MemoryStore(minConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 18);
+
+      await pilot(store, platform, vehicle, at(22, 13)).tick(); // envoie 14:05
+      await pilot(store, platform, vehicle, at(22, 13)).confirmMinimum();
+      await pilot(store, platform, vehicle, at(22, 13)).executeMinimum();
+      expect(vehicle.writes.last['chargeTimeStart'], '12:55');
+      expect(vehicle.writes.last['chargeDuration'], 250); // jusqu'a 17:05
+      expect(store.state.boost?.merged, isTrue);
+      expect(store.state.sentId, 'window-20260922T1405');
+      expect(platform.wakes.containsKey(PilotWake.boostEnd), isFalse);
+
+      final writes = vehicle.writes.length;
+      await pilot(store, platform, vehicle, at(22, 17, 10)).tick();
+      expect(vehicle.writes, hasLength(writes));
+      expect(store.state.boost, isNull);
+    });
+
+    test('une plage a envoyer pendant la charge part quand meme', () async {
+      final store = MemoryStore(minConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 10);
+
+      await pilot(store, platform, vehicle, at(22, 20)).tick();
+      await pilot(store, platform, vehicle, at(22, 20)).confirmMinimum();
+      await pilot(store, platform, vehicle, at(22, 20)).executeMinimum();
+      expect(store.state.boost?.end, at(22, 21, 50));
+
+      await pilot(store, platform, vehicle, at(22, 21, 15)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(store.state.boost, isNull);
+      expect(platform.wakes.containsKey(PilotWake.boostEnd), isFalse);
+    });
+
+    test('pas de proposition voiture debranchee ou deja en charge ; refus retenu jusqu\'au debranchement', () async {
+      final store = MemoryStore(minConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 18, plug: PlugState.unplugged);
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      expect(platform.minimumProposals, isEmpty);
+
+      vehicle
+        ..plug = PlugState.plugged
+        ..charging = true;
+      await pilot(store, platform, vehicle, at(22, 21, 25)).tick();
+      expect(platform.minimumProposals, isEmpty);
+
+      vehicle.charging = false;
+      await pilot(store, platform, vehicle, at(22, 21, 30)).tick();
+      expect(platform.minimumProposals, hasLength(1));
+      await pilot(store, platform, vehicle, at(22, 21, 31)).ignoreMinimum();
+      await pilot(store, platform, vehicle, at(22, 21, 35)).tick();
+      expect(platform.minimumProposals, hasLength(1));
+
+      vehicle.plug = PlugState.unplugged;
+      await pilot(store, platform, vehicle, at(22, 21, 40)).tick();
+      vehicle.plug = PlugState.plugged;
+      await pilot(store, platform, vehicle, at(22, 21, 45)).tick();
+      expect(platform.minimumProposals, hasLength(2));
     });
   });
 }

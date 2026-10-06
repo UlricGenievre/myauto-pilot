@@ -38,12 +38,14 @@ Future<ChargeWindow?> pickChargeWindow(BuildContext context, {ChargeWindow? init
   return ChargeWindow(start: start, end: end);
 }
 
-/// Curseur de pourcentage cible (10..100 %, pas de 5).
+/// Curseur de pourcentage ([min]..[max] %, 10..100 par defaut, pas de 5).
 class PercentSlider extends StatelessWidget {
-  const PercentSlider({super.key, required this.value, required this.onChanged});
+  const PercentSlider({super.key, required this.value, required this.onChanged, this.min = 10, this.max = 100});
 
   final int value;
   final ValueChanged<int> onChanged;
+  final int min;
+  final int max;
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +54,9 @@ class PercentSlider extends StatelessWidget {
         Expanded(
           child: Slider(
             value: value.toDouble(),
-            min: 10,
-            max: 100,
-            divisions: 18,
+            min: min.toDouble(),
+            max: max.toDouble(),
+            divisions: (max - min) ~/ 5,
             activeColor: AppColors.accent,
             inactiveColor: AppColors.surfaceHigh,
             onChanged: (v) => onChanged(v.round()),

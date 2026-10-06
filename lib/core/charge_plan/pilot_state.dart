@@ -97,6 +97,47 @@ class CommandMark {
   }
 }
 
+/// Charge immediate jusqu'a la charge minimale, envoyee a la voiture a la
+/// place de la plage en vigueur.
+class MinimumBoost {
+  const MinimumBoost({required this.sentAt, required this.end, this.displaced, this.merged = false});
+
+  final DateTime sentAt;
+
+  /// Fin de la charge (fin de la plage d'heures creuses si [merged]).
+  final DateTime end;
+
+  /// Commande en place dans la voiture avant la charge immediate, renvoyee
+  /// a sa fin (sans confirmation : le telephone peut etre en mode nuit).
+  final CommandMark? displaced;
+
+  /// Prolongee jusqu'a la fin de la plage d'heures creuses suivante, qui
+  /// compte alors comme envoyee : rien a renvoyer a la fin.
+  final bool merged;
+
+  bool activeAt(DateTime now) => end.isAfter(now);
+
+  Map<String, dynamic> toJson() => {
+        'sentAt': sentAt.toIso8601String(),
+        'end': end.toIso8601String(),
+        'displaced': displaced?.toJson(),
+        if (merged) 'merged': true,
+      };
+
+  static MinimumBoost? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) return null;
+    final sentAt = DateTime.tryParse(json['sentAt'] as String? ?? '');
+    final end = DateTime.tryParse(json['end'] as String? ?? '');
+    if (sentAt == null || end == null) return null;
+    return MinimumBoost(
+      sentAt: sentAt,
+      end: end,
+      displaced: CommandMark.fromJson(json['displaced']),
+      merged: json['merged'] as bool? ?? false,
+    );
+  }
+}
+
 /// Etat d'execution du pilotage automatique, persiste entre les reveils
 /// (chaque reveil tourne dans un isolate neuf, sans memoire).
 class PilotState {
@@ -110,6 +151,10 @@ class PilotState {
     this.lastResultAt,
     this.nextWakeAt,
     this.sendingSince,
+    this.boost,
+    this.boostProposed = false,
+    this.boostConfirmed = false,
+    this.boostDismissed = false,
   });
 
   /// Derniere commande envoyee avec succes.
@@ -143,6 +188,19 @@ class PilotState {
   /// l'app et les reveils, cf. `ChargePilot.sendLockTimeout`).
   final DateTime? sendingSince;
 
+  /// Charge immediate jusqu'au minimum envoyee (en cours ou a solder).
+  final MinimumBoost? boost;
+
+  /// Charge immediate proposee (notification affichee), sans reponse.
+  final bool boostProposed;
+
+  /// Charge immediate acceptee, a envoyer par le reveil "execution".
+  final bool boostConfirmed;
+
+  /// Proposition refusee : plus reproposee avant que la batterie repasse
+  /// au-dessus du minimum ou que la voiture soit debranchee.
+  final bool boostDismissed;
+
   PilotState copyWith({
     CommandMark? sent,
     CommandMark? ignored,
@@ -157,6 +215,11 @@ class PilotState {
     bool clearNextWake = false,
     DateTime? sendingSince,
     bool clearSending = false,
+    MinimumBoost? boost,
+    bool clearBoost = false,
+    bool? boostProposed,
+    bool? boostConfirmed,
+    bool? boostDismissed,
   }) =>
       PilotState(
         sent: sent ?? this.sent,
@@ -168,6 +231,10 @@ class PilotState {
         lastResultAt: lastResultAt ?? this.lastResultAt,
         nextWakeAt: clearNextWake ? null : (nextWakeAt ?? this.nextWakeAt),
         sendingSince: clearSending ? null : (sendingSince ?? this.sendingSince),
+        boost: clearBoost ? null : (boost ?? this.boost),
+        boostProposed: boostProposed ?? this.boostProposed,
+        boostConfirmed: boostConfirmed ?? this.boostConfirmed,
+        boostDismissed: boostDismissed ?? this.boostDismissed,
       );
 
   Map<String, dynamic> toJson() => {
@@ -180,6 +247,10 @@ class PilotState {
         'lastResultAt': lastResultAt?.toIso8601String(),
         'nextWakeAt': nextWakeAt?.toIso8601String(),
         'sendingSince': sendingSince?.toIso8601String(),
+        'boost': boost?.toJson(),
+        if (boostProposed) 'boostProposed': true,
+        if (boostConfirmed) 'boostConfirmed': true,
+        if (boostDismissed) 'boostDismissed': true,
       };
 
   factory PilotState.fromJson(Map<String, dynamic> json) => PilotState(
@@ -192,5 +263,9 @@ class PilotState {
         lastResultAt: DateTime.tryParse(json['lastResultAt'] as String? ?? ''),
         nextWakeAt: DateTime.tryParse(json['nextWakeAt'] as String? ?? ''),
         sendingSince: DateTime.tryParse(json['sendingSince'] as String? ?? ''),
+        boost: MinimumBoost.fromJson(json['boost']),
+        boostProposed: json['boostProposed'] as bool? ?? false,
+        boostConfirmed: json['boostConfirmed'] as bool? ?? false,
+        boostDismissed: json['boostDismissed'] as bool? ?? false,
       );
 }

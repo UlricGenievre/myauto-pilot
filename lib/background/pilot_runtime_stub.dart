@@ -11,6 +11,10 @@ Future<void> confirmPilotCommand(String commandId) async {}
 
 Future<void> ignorePilotCommand(String commandId) async {}
 
+Future<void> confirmMinimumCharge() async {}
+
+Future<void> ignoreMinimumCharge() async {}
+
 Future<bool> requestPilotPermissions() async => false;
 
 Future<bool> notificationsAllowed() async => false;

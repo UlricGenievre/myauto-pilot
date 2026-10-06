@@ -1,3 +1,4 @@
+import '../models/battery_status.dart';
 import '../models/charge_plan_config.dart';
 import '../models/vehicle_schedule.dart';
 import 'charge_planner.dart';
@@ -6,7 +7,7 @@ import 'pilot_state.dart';
 /// Acces au vehicule depuis un reveil (sans interface, donc sans les
 /// providers Riverpod) : construit a partir de la session stockee.
 abstract interface class PilotVehicleGateway {
-  Future<int?> fetchSoc(String vin);
+  Future<BatteryStatus> fetchBattery(String vin);
   Future<VehicleSchedule> fetchSchedule(String vin);
   Future<void> updateSchedule(String vin, Map<String, dynamic> settings);
 }
@@ -28,6 +29,11 @@ abstract interface class PilotPlatform {
   Future<void> dismissConfirmation();
   Future<void> showResult(String title, String body);
   Future<void> showReminder(String body);
+
+  /// Batterie sous la charge minimale : propose une charge immediate
+  /// (actions Declencher/Ignorer).
+  Future<void> showMinimumProposal(String body);
+  Future<void> dismissMinimumProposal();
 }
 
 enum PilotWake {
@@ -38,7 +44,11 @@ enum PilotWake {
   execute(2),
 
   /// Rappel du soir.
-  evening(3);
+  evening(3),
+
+  /// Fin d'une charge immediate jusqu'au minimum : renvoi de la plage
+  /// qu'elle a remplacee.
+  boostEnd(4);
 
   const PilotWake(this.alarmId);
 
@@ -94,15 +104,43 @@ class ChargePilot {
         await platform.cancelWake(wake);
       }
       await platform.dismissConfirmation();
-      await store.saveState(state.copyWith(clearPending: true, clearConfirmed: true, clearNextWake: true));
+      await platform.dismissMinimumProposal();
+      await store.saveState(state.copyWith(
+        clearPending: true,
+        clearConfirmed: true,
+        clearNextWake: true,
+        clearBoost: true,
+        boostProposed: false,
+        boostConfirmed: false,
+        boostDismissed: false,
+      ));
       return;
     }
 
     final vehicle = await _safeGateway();
-    final soc = vehicle == null ? null : await _safeSoc(vehicle, vin);
+    final battery = vehicle == null ? null : await _safeBattery(vehicle, vin);
+    final soc = battery?.batteryLevel;
     final now = _clock();
     final planner = ChargePlanner(config);
     final command = planner.commandInForce(now, socPercent: soc);
+
+    // Charge immediate terminee : remettre dans la voiture la plage qu'elle
+    // a remplacee, sans confirmation (le telephone peut etre en mode nuit).
+    // Celle en vigueur si c'est la meme, sinon celle d'avant telle quelle.
+    final finished = state.boost;
+    if (finished != null && !finished.activeAt(now)) {
+      state = state.copyWith(clearBoost: true);
+      await platform.cancelWake(PilotWake.boostEnd);
+      final displaced = finished.displaced;
+      if (!finished.merged && displaced != null) {
+        final restore =
+            command != null && displaced.covers(command, config.fingerprint) ? command : displaced.toCommand(now);
+        if (restore != null) {
+          state = await _send(config, state, restore, vehicle, title: 'Plage d\'heures creuses renvoyée');
+        }
+      }
+    }
+    final boost = state.boost;
 
     // Une commande deja envoyee (ou ignoree) est reproposee si le
     // parametrage a change depuis et que son contenu differe (ex. objectif
@@ -111,7 +149,10 @@ class ChargePilot {
     final alreadySent = command != null && (state.sent?.covers(command, fingerprint) ?? false);
     final ignored = command != null && (state.ignored?.covers(command, fingerprint) ?? false);
     if (command != null && !alreadySent && !ignored) {
-      if (!config.effectiveSafeMode) {
+      if (boost != null && !command.pushAt.isAfter(boost.sentAt)) {
+        // Remplacee par la charge immediate en cours : renvoyee a sa fin. Une
+        // plage dont l'envoi tombe pendant la charge part normalement.
+      } else if (!config.effectiveSafeMode) {
         state = await _send(config, state, command, vehicle);
       } else if (state.confirmedId == command.id) {
         // Confirmee : l'envoi est le role exclusif du reveil "execution"
@@ -134,8 +175,133 @@ class ChargePilot {
       state = state.copyWith(clearNextWake: true);
     }
     await platform.scheduleWake(PilotWake.evening, _nextEvening(now));
+    if (state.boost case final active? when !active.merged && active.activeAt(now)) {
+      await platform.scheduleWake(PilotWake.boostEnd, active.end);
+    }
 
+    state = await _updateMinimumProposal(config, state, battery, now);
     await store.saveState(state);
+  }
+
+  // --- Charge minimale -----------------------------------------------------------
+
+  /// Charge immediate jusqu'au minimum a proposer maintenant, ou null :
+  /// batterie inconnue ou au-dessus, voiture debranchee ou deja en charge,
+  /// charge immediate deja en cours.
+  MinimumBoostPlan? _minimumOffer(ChargePlanConfig config, PilotState state, BatteryStatus? battery, DateTime now) {
+    final soc = battery?.batteryLevel;
+    if (soc == null || battery!.plugState != PlugState.plugged || battery.isCharging == true) return null;
+    if (config.dedicatedProgramIndex == null || (state.boost?.activeAt(now) ?? false)) return null;
+    return ChargePlanner(config).minimumBoost(now, socPercent: soc);
+  }
+
+  Future<PilotState> _updateMinimumProposal(
+    ChargePlanConfig config,
+    PilotState state,
+    BatteryStatus? battery,
+    DateTime now,
+  ) async {
+    if (battery == null) return state;
+    final min = config.minChargePercent;
+    final soc = battery.batteryLevel;
+    // Refus valable jusqu'a ce que la batterie remonte ou que la voiture
+    // soit debranchee.
+    if (state.boostDismissed &&
+        (min == null || (soc != null && soc >= min) || battery.plugState == PlugState.unplugged)) {
+      state = state.copyWith(boostDismissed: false);
+    }
+    final offer = state.boostDismissed || state.boostConfirmed ? null : _minimumOffer(config, state, battery, now);
+    if (offer != null) {
+      if (!state.boostProposed) {
+        await platform.showMinimumProposal(describeMinimum(config, state, offer, soc!));
+        state = state.copyWith(boostProposed: true);
+      }
+    } else if (state.boostProposed) {
+      await platform.dismissMinimumProposal();
+      state = state.copyWith(boostProposed: false);
+    }
+    return state;
+  }
+
+  /// Action "Declencher" (notification ou app) : comme [confirm], l'envoi
+  /// est fait par le reveil "execution".
+  Future<void> confirmMinimum() async {
+    final state = await store.loadState();
+    await store.saveState(state.copyWith(boostConfirmed: true, boostProposed: false));
+    await platform.dismissMinimumProposal();
+    await platform.scheduleWake(PilotWake.execute, _clock().add(const Duration(seconds: 2)));
+  }
+
+  /// Action "Ignorer" de la proposition de charge immediate.
+  Future<void> ignoreMinimum() async {
+    final state = await store.loadState();
+    await store.saveState(state.copyWith(boostDismissed: true, boostProposed: false, boostConfirmed: false));
+    await platform.dismissMinimumProposal();
+  }
+
+  /// Reveil "execution" : envoie la charge immediate acceptee, recalculee
+  /// avec le niveau du moment.
+  Future<void> executeMinimum() async {
+    final config = await store.load();
+    var state = await store.loadState();
+    final vin = config.vehicleVin;
+    if (!state.boostConfirmed) return;
+    if (!config.enabled || vin == null || !config.vehicleSupport.canWrite) {
+      await store.saveState(state.copyWith(boostConfirmed: false));
+      return;
+    }
+    final since = state.sendingSince;
+    if (since != null && _clock().difference(since) < sendLockTimeout) {
+      await platform.scheduleWake(PilotWake.execute, _clock().add(const Duration(minutes: 1)));
+      return;
+    }
+
+    state = state.copyWith(boostConfirmed: false);
+    final vehicle = await _safeGateway();
+    final battery = vehicle == null ? null : await _safeBattery(vehicle, vin);
+    final now = _clock();
+    final plan = _minimumOffer(config, state, battery, now);
+    if (plan == null) {
+      state = _withResult(
+          state,
+          'Charge immédiate non lancée : batterie au-dessus du minimum, voiture débranchée, déjà en charge '
+          'ou niveau illisible.',
+          ok: false);
+      await platform.showResult('Charge immédiate non lancée', state.lastResult!);
+      await store.saveState(state);
+      return;
+    }
+
+    final command = plan.command;
+    final merged = plan.mergedWith;
+    final displaced = state.sent;
+    final body = 'Charge jusqu\'à ${_hm(command.windowEnd)} pour atteindre ${config.minChargePercent} %.'
+        '${merged != null ? ' Prolongée jusqu\'à la fin de la plage d\'heures creuses.' : displaced != null ? ' La plage d\'heures creuses sera renvoyée à ${_hm(command.windowEnd)}.' : ''}';
+    state = await _send(config, state, command, vehicle, title: 'Charge immédiate lancée', body: body);
+    if (state.lastResultOk == true && state.sent?.id == command.id) {
+      state = state.copyWith(
+        boost: MinimumBoost(sentAt: now, end: command.windowEnd, displaced: merged == null ? displaced : null, merged: merged != null),
+        // Plage atteinte par la charge immediate : deja dans la voiture.
+        sent: merged != null ? CommandMark.of(merged, config.fingerprint) : null,
+      );
+      if (merged == null) await platform.scheduleWake(PilotWake.boostEnd, command.windowEnd);
+    }
+    await store.saveState(state);
+  }
+
+  /// Texte de la proposition de charge immediate.
+  String describeMinimum(ChargePlanConfig config, PilotState state, MinimumBoostPlan plan, int soc) {
+    final end = _hm(plan.command.windowEnd);
+    return [
+      'Batterie à $soc %, voiture branchée. Déclencher la charge pour atteindre le seuil minimal de '
+          '${config.minChargePercent} % ?',
+      if (plan.mergedWith != null)
+        'Charge immédiate, prolongée jusqu\'à la fin de la plage d\'heures creuses ($end).'
+      else ...[
+        'Charge immédiate jusqu\'à $end environ, en heures pleines.',
+        if (state.sent != null) 'La plage d\'heures creuses sera ensuite renvoyée automatiquement.',
+      ],
+    ].join('\n');
   }
 
   /// Action "Envoyer" de la notification. Tourne dans un contexte Android
@@ -191,7 +357,7 @@ class ChargePilot {
     }
 
     final vehicle = await _safeGateway();
-    final soc = vehicle == null ? null : await _safeSoc(vehicle, vin);
+    final soc = vehicle == null ? null : (await _safeBattery(vehicle, vin))?.batteryLevel;
     final command = ChargePlanner(config).commandInForce(_clock(), socPercent: soc);
 
     if (command == null || command.id != confirmedId) {
@@ -242,8 +408,10 @@ class ChargePilot {
     ChargePlanConfig config,
     PilotState state,
     ChargeCommand command,
-    PilotVehicleGateway? vehicle,
-  ) async {
+    PilotVehicleGateway? vehicle, {
+    String title = 'Plage envoyée',
+    String? body,
+  }) async {
     // Relecture juste avant de verrouiller : l'etat [state] a pu etre lu
     // avant qu'un autre isolate ne pose son verrou.
     final fresh = await store.loadState();
@@ -253,7 +421,7 @@ class ChargePilot {
       return state.copyWith(sendingSince: since);
     }
     await store.saveState(fresh.copyWith(sendingSince: _clock()));
-    final result = await _sendUnlocked(config, state, command, vehicle);
+    final result = await _sendUnlocked(config, state, command, vehicle, title: title, body: body);
     return result.copyWith(clearSending: true);
   }
 
@@ -261,8 +429,10 @@ class ChargePilot {
     ChargePlanConfig config,
     PilotState state,
     ChargeCommand command,
-    PilotVehicleGateway? vehicle,
-  ) async {
+    PilotVehicleGateway? vehicle, {
+    required String title,
+    String? body,
+  }) async {
     final vin = config.vehicleVin!;
     final programIndex = config.dedicatedProgramIndex;
     if (!config.vehicleSupport.canWrite) {
@@ -311,16 +481,19 @@ class ChargePilot {
       final programs = reread.programs;
       final climateApplied = programIndex >= programs.length ||
           programs[programIndex].kind.includesClimate == command.climate;
-      final body = 'Plage appliquée : ${_window(command)}'
-          '${command.defaultReadyAt ? '' : ', prête à ${_hm(command.readyAt)}'}'
-          '${command.climate && climateApplied ? ', habitacle climatisé${_temperature(command)}' : ''}.'
+      final message = '${body ?? 'Plage appliquée : ${_window(command)}'
+              '${command.defaultReadyAt ? '' : ', prête à ${_hm(command.readyAt)}'}'
+              '${command.climate && climateApplied ? ', habitacle climatisé${_temperature(command)}' : ''}.'}'
           '${climateApplied ? '' : ' La voiture n\'a pas retenu la climatisation.'}';
-      await platform.showResult('Plage envoyée', body);
-      return _withResult(
-        state.copyWith(sent: CommandMark.of(command, config.fingerprint), clearPending: true, clearConfirmed: true),
-        body,
-        ok: true,
-      );
+      await platform.showResult(title, message);
+      var next =
+          state.copyWith(sent: CommandMark.of(command, config.fingerprint), clearPending: true, clearConfirmed: true);
+      if (command.kind != ChargeCommandKind.minimumBoost && next.boost != null) {
+        // La plage envoyee remplace la charge immediate en cours.
+        next = next.copyWith(clearBoost: true);
+        await platform.cancelWake(PilotWake.boostEnd);
+      }
+      return _withResult(next, message, ok: true);
     } catch (error) {
       return _fail(state, command, 'Échec de l\'envoi : $error');
     }
@@ -344,9 +517,9 @@ class ChargePilot {
     }
   }
 
-  Future<int?> _safeSoc(PilotVehicleGateway vehicle, String vin) async {
+  Future<BatteryStatus?> _safeBattery(PilotVehicleGateway vehicle, String vin) async {
     try {
-      return await vehicle.fetchSoc(vin);
+      return await vehicle.fetchBattery(vin);
     } catch (_) {
       return null;
     }

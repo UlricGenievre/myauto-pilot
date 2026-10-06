@@ -230,4 +230,116 @@ void main() {
       expect(const ChargePlanner(ChargePlanConfig()).commandInForce(at(22, 12)), isNull);
     });
   });
+
+  group('Charge maximale', () {
+    // 52 kWh, 7,4 kW : 1 % = 4,2 min de charge.
+    ChargeCommand byId(ChargePlanConfig c, String id, {int? soc}) =>
+        ChargePlanner(c).commands(at(22, 10), socPercent: soc).firstWhere((cmd) => cmd.id == id);
+
+    test('plage raccourcie pour s\'arreter vers le maximum', () {
+      final cmd = byId(config().copyWith(maxChargePercent: 80), 'window-20260923T0100', soc: 60);
+      // 20 % -> 85 min (arrondi a 5 min).
+      expect(cmd.windowStart, at(23, 1));
+      expect(cmd.durationMinutes, 85);
+      expect(cmd.maxPercent, 80);
+      expect(cmd.maxReached, isFalse);
+      expect(cmd.note, contains('80 %'));
+    });
+
+    test('maximum deja atteint : plage de 5 min terminee a l\'envoi', () {
+      final cmd = byId(config().copyWith(maxChargePercent: 80), 'window-20260923T0100', soc: 85);
+      expect(cmd.pushAt, at(22, 21));
+      expect(cmd.windowStart, at(22, 20, 55));
+      expect(cmd.durationMinutes, 5);
+      expect(cmd.maxReached, isTrue);
+      expect(cmd.chargeTimeStart.format(), '20:55');
+    });
+
+    test('un objectif servi par la plage passe outre le maximum', () {
+      final c = config(targets: {3: ReadyTarget(targetPercent: 90, readyAt: ClockTime.hm(7, 30))})
+          .copyWith(maxChargePercent: 80);
+      final cmd = byId(c, 'window-20260923T0100', soc: 60);
+      // 30 % -> 127 min -> 130 min.
+      expect(cmd.durationMinutes, 130);
+      expect(cmd.maxPercent, 90);
+      expect(cmd.target?.targetPercent, 90);
+
+      final full = byId(
+          config(targets: {3: ReadyTarget(targetPercent: 100, readyAt: ClockTime.hm(7, 30))})
+              .copyWith(maxChargePercent: 80),
+          'window-20260923T0100',
+          soc: 60);
+      expect(full.durationMinutes, 360);
+      expect(full.maxPercent, isNull);
+    });
+
+    test('objectif servi plus tard : maximum si les plages suivantes suffisent', () {
+      // Objectif jeudi 07:30 a 90 % : servi par la plage de jeudi 01:00.
+      final c = config(targets: {4: ReadyTarget(targetPercent: 90, readyAt: ClockTime.hm(7, 30))})
+          .copyWith(maxChargePercent: 80);
+      final cmd = byId(c, 'window-20260923T0100', soc: 60);
+      expect(cmd.maxPercent, 80);
+      expect(cmd.durationMinutes, 85);
+    });
+
+    test('niveau inconnu : plage complete et explication', () {
+      final cmd = byId(config().copyWith(maxChargePercent: 80), 'window-20260923T0100');
+      expect(cmd.durationMinutes, 360);
+      expect(cmd.maxPercent, isNull);
+      expect(cmd.note, contains('Charge maximale non appliquée'));
+    });
+
+    test('bloc HC de plusieurs jours : un envoi raccourci par jour a 10:00', () {
+      List<String> ids(ChargePlanConfig c) => ChargePlanner(c)
+          .commands(at(25, 10), socPercent: 70)
+          .where((cmd) => cmd.kind == ChargeCommandKind.allDayFull && cmd.pushAt.isBefore(at(29, 0)))
+          .map((cmd) => cmd.id)
+          .toList();
+      expect(ids(config()), ['allday-full-20260926T0000']);
+      expect(ids(config().copyWith(maxChargePercent: 80)),
+          ['allday-full-20260926T0000', 'allday-full-20260927T0000', 'allday-full-20260928T0000']);
+
+      final sunday = ChargePlanner(config().copyWith(maxChargePercent: 80))
+          .commands(at(25, 10), socPercent: 70)
+          .firstWhere((cmd) => cmd.id == 'allday-full-20260927T0000');
+      expect(sunday.pushAt, at(27, 10));
+      expect(sunday.windowStart, at(27, 10));
+      // 10 % -> 43 min -> 45 min.
+      expect(sunday.durationMinutes, 45);
+    });
+  });
+
+  group('Charge minimale', () {
+    // 52 kWh, 7,4 kW : 18 % -> 35 % = 72 min -> 75 min.
+    test('charge immediate deja commencee, assez longue pour le minimum', () {
+      final plan = ChargePlanner(config().copyWith(minChargePercent: 35)).minimumBoost(at(22, 20), socPercent: 18)!;
+      expect(plan.mergedWith, isNull);
+      expect(plan.command.kind, ChargeCommandKind.minimumBoost);
+      expect(plan.command.windowStart, at(22, 19, 55));
+      expect(plan.command.windowEnd, at(22, 21, 15));
+      expect(plan.command.defaultReadyAt, isTrue);
+    });
+
+    test('atteint la plage suivante : prolongee jusqu\'a sa fin', () {
+      final plan = ChargePlanner(config().copyWith(minChargePercent: 35)).minimumBoost(at(22, 12), socPercent: 18)!;
+      expect(plan.mergedWith?.id, 'window-20260922T1300');
+      expect(plan.command.windowStart, at(22, 11, 55));
+      expect(plan.command.windowEnd, at(22, 16));
+    });
+
+    test('prolongee, mais arretee vers la charge maximale', () {
+      final plan = ChargePlanner(config().copyWith(minChargePercent: 35, maxChargePercent: 50))
+          .minimumBoost(at(22, 12), socPercent: 18)!;
+      // 18 % -> 50 % : 135 min depuis 12:00.
+      expect(plan.mergedWith?.id, 'window-20260922T1300');
+      expect(plan.command.windowEnd, at(22, 14, 15));
+    });
+
+    test('rien au-dessus du minimum, sans minimum ou sans capacite', () {
+      expect(ChargePlanner(config().copyWith(minChargePercent: 35)).minimumBoost(at(22, 20), socPercent: 35), isNull);
+      expect(ChargePlanner(config()).minimumBoost(at(22, 20), socPercent: 10), isNull);
+      expect(ChargePlanner(config(capacity: null).copyWith(minChargePercent: 35)).minimumBoost(at(22, 20), socPercent: 10),
+          isNull);
+    });
+  });
 }

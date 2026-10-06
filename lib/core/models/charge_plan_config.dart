@@ -247,6 +247,8 @@ class ChargePlanConfig {
     this.vehicleVin,
     this.vehicleModelCode,
     this.pushLeadMinutes = defaultPushLeadMinutes,
+    this.maxChargePercent,
+    this.minChargePercent,
   });
 
   static const defaultPushLeadMinutes = 240;
@@ -288,6 +290,14 @@ class ChargePlanConfig {
   /// Delai entre l'envoi d'une plage a la voiture et son debut.
   final int pushLeadMinutes;
 
+  /// Charge maximale visee hors objectif (null = aucune) : les plages sont
+  /// raccourcies pour s'arreter vers ce niveau.
+  final int? maxChargePercent;
+
+  /// Charge minimale (null = aucune) : sous ce niveau, voiture branchee,
+  /// l'app propose une charge immediate jusqu'a ce niveau.
+  final int? minChargePercent;
+
 
   /// Empreinte du parametrage (FNV-1a 32 bits de sa forme JSON) : sert a
   /// savoir s'il a change depuis un envoi. Stable d'une execution a
@@ -324,6 +334,10 @@ class ChargePlanConfig {
     String? vehicleVin,
     String? vehicleModelCode,
     int? pushLeadMinutes,
+    int? maxChargePercent,
+    bool clearMaxCharge = false,
+    int? minChargePercent,
+    bool clearMinCharge = false,
   }) =>
       ChargePlanConfig(
         batteryCapacityKwh: batteryCapacityKwh ?? this.batteryCapacityKwh,
@@ -338,6 +352,8 @@ class ChargePlanConfig {
         vehicleVin: vehicleVin ?? this.vehicleVin,
         vehicleModelCode: vehicleModelCode ?? this.vehicleModelCode,
         pushLeadMinutes: pushLeadMinutes ?? this.pushLeadMinutes,
+        maxChargePercent: clearMaxCharge ? null : (maxChargePercent ?? this.maxChargePercent),
+        minChargePercent: clearMinCharge ? null : (minChargePercent ?? this.minChargePercent),
       );
 
   Map<String, dynamic> toJson() => {
@@ -353,6 +369,8 @@ class ChargePlanConfig {
         'vehicleVin': vehicleVin,
         'vehicleModelCode': vehicleModelCode,
         'pushLeadMinutes': pushLeadMinutes,
+        'maxChargePercent': maxChargePercent,
+        'minChargePercent': minChargePercent,
       };
 
   factory ChargePlanConfig.fromJson(Map<String, dynamic> json) => ChargePlanConfig(
@@ -372,5 +390,7 @@ class ChargePlanConfig {
         vehicleVin: json['vehicleVin'] as String?,
         vehicleModelCode: json['vehicleModelCode'] as String?,
         pushLeadMinutes: json['pushLeadMinutes'] as int? ?? defaultPushLeadMinutes,
+        maxChargePercent: json['maxChargePercent'] as int?,
+        minChargePercent: json['minChargePercent'] as int?,
       );
 }
