@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0
+
+- Charge immédiate (onglet Pilotage) : charge maintenant jusqu'au niveau
+  choisi, même en heures pleines, que l'envoi auto soit actif ou non.
+  Confirmation dans l'application en mode sécurisé, bouton Arrêter. À la
+  fin, la voiture retrouve sa plage d'heures creuses (envoi auto actif) ou
+  ses réglages d'avant ; une charge qui atteint la plage d'heures creuses
+  suivante se prolonge jusqu'à sa fin.
+- Plage modifiée hors application (MyRenault…) : signalée « Modifié hors
+  app » avec un bouton Renvoyer, au lieu d'être affichée comme envoyée.
+  Une charge immédiate dont la plage a été modifiée ailleurs est
+  abandonnée sans rien écraser.
+- « En vigueur » plus précis (onglets Pilotage et État) : charge
+  immédiate en cours, heure réelle de l'envoi, plage à renvoyer ou à
+  confirmer après un changement d'objectif.
+- Onglet État : « en attente de la plage de charge » au lieu de « en
+  attente de courant » quand la voiture attend sa plage ; informations de
+  la carte Véhicule au choix (bouton de réglage).
+- Interface allégée : boutons « Envoi auto » et « Mode sécurisé », et
+  explications des cartes affichées à la demande (bouton « ? »).
+
 ## 0.3.0
 
 - Seuils de charge (Réglages › Seuils de charge), gérés par l'application :
