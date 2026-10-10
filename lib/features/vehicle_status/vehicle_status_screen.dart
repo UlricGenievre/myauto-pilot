@@ -10,6 +10,7 @@ import '../../core/widgets/battery_gauge.dart';
 import '../../core/widgets/dashboard_card.dart';
 import '../../core/widgets/stat_tile.dart';
 import '../charge_plan/cards/pilot_summary_card.dart';
+import '../schedule/schedule_providers.dart';
 import 'vehicle_status_providers.dart';
 
 class VehicleStatusScreen extends ConsumerWidget {
@@ -19,6 +20,7 @@ class VehicleStatusScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final battery = ref.watch(batteryStatusProvider);
     final cockpit = ref.watch(cockpitProvider);
+    final inChargeWindow = ref.watch(vehicleScheduleProvider).value?.chargeWindowContains(DateTime.now());
 
     return RefreshIndicator(
       color: AppColors.accent,
@@ -27,11 +29,12 @@ class VehicleStatusScreen extends ConsumerWidget {
         ref.invalidate(batteryStatusProvider);
         ref.invalidate(cockpitProvider);
         ref.invalidate(hvacStatusProvider);
+        ref.invalidate(vehicleScheduleProvider);
       },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
-          _BatterySection(asyncBattery: battery),
+          _BatterySection(asyncBattery: battery, inChargeWindow: inChargeWindow),
           const SizedBox(height: 16),
           const PilotSummaryCard(),
           const SizedBox(height: 16),
@@ -47,9 +50,12 @@ class VehicleStatusScreen extends ConsumerWidget {
 }
 
 class _BatterySection extends StatelessWidget {
-  const _BatterySection({required this.asyncBattery});
+  const _BatterySection({required this.asyncBattery, this.inChargeWindow});
 
   final AsyncValue<BatteryStatus?> asyncBattery;
+
+  /// Heure actuelle dans la plage de charge de la voiture (null : inconnu).
+  final bool? inChargeWindow;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +76,7 @@ class _BatterySection extends StatelessWidget {
                   rangeKm: battery.rangeKm,
                   isCharging: battery.isCharging ?? false,
                 ),
-                if (_ChargeLine.of(battery) case final line?) ...[
+                if (_ChargeLine.of(battery, inChargeWindow: inChargeWindow) case final line?) ...[
                   const SizedBox(height: 20),
                   line,
                 ],
@@ -98,7 +104,10 @@ class _ChargeLine extends StatelessWidget {
   final Color color;
   final IconData icon;
 
-  static _ChargeLine? of(BatteryStatus battery) {
+  /// [inChargeWindow] : le Rafale renvoie "en attente de courant" (0.3)
+  /// aussi quand il attend sa plage de charge ; hors plage, c'est donc
+  /// l'attente de la plage qui est affichee.
+  static _ChargeLine? of(BatteryStatus battery, {bool? inChargeWindow}) {
     final plugged = switch (battery.plugState) {
       PlugState.plugged => 'Branchée',
       PlugState.unplugged => 'Débranchée',
@@ -121,8 +130,12 @@ class _ChargeLine extends StatelessWidget {
       ChargeState.waitingPlanned =>
         _ChargeLine(join(plugged, 'en attente de la plage de charge'), AppColors.accent, Icons.schedule_rounded),
       ChargeState.ended => _ChargeLine(join(plugged, 'charge terminée'), AppColors.success, Icons.check_rounded),
-      ChargeState.waitingCurrent =>
-        _ChargeLine(join(plugged, 'en attente de courant'), AppColors.accent, Icons.hourglass_empty_rounded),
+      ChargeState.waitingCurrent => switch (inChargeWindow) {
+          false =>
+            _ChargeLine(join(plugged, 'en attente de la plage de charge'), AppColors.accent, Icons.schedule_rounded),
+          true => _ChargeLine(join(plugged, 'en attente de courant'), AppColors.accent, Icons.hourglass_empty_rounded),
+          null => _ChargeLine(join(plugged, 'en attente de charge'), AppColors.accent, Icons.hourglass_empty_rounded),
+        },
       ChargeState.flapOpen => const _ChargeLine('Trappe de charge ouverte', AppColors.accent, Icons.ev_station_outlined),
       ChargeState.error => _ChargeLine(join(plugged, 'erreur de charge'), AppColors.error, Icons.error_outline),
       ChargeState.notCharging || ChargeState.unavailable || null => plugged == null

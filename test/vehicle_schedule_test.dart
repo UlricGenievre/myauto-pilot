@@ -65,4 +65,15 @@ void main() {
     final schedule = VehicleSchedule.fromJson(realResponse());
     expect(() => schedule.toUpdatedJson(programIndex: 3), throwsRangeError);
   });
+
+  test('plage de charge en cours ou non', () {
+    final schedule = VehicleSchedule.fromJson({...realResponse(), 'chargeTimeStart': '22:00', 'chargeDuration': 480});
+    expect(schedule.chargeWindowContains(DateTime(2026, 9, 22, 21, 59)), isFalse);
+    expect(schedule.chargeWindowContains(DateTime(2026, 9, 22, 23)), isTrue);
+    expect(schedule.chargeWindowContains(DateTime(2026, 9, 23, 5, 59)), isTrue);
+    expect(schedule.chargeWindowContains(DateTime(2026, 9, 23, 6)), isFalse);
+    expect(VehicleSchedule.fromJson(realResponse()).chargeWindowContains(DateTime(2026, 9, 22, 12)), isTrue);
+    expect(VehicleSchedule.fromJson({...realResponse(), 'chargeTimeStart': null}).chargeWindowContains(DateTime(2026, 9, 22)),
+        isNull);
+  });
 }

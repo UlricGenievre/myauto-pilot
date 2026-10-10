@@ -105,6 +105,23 @@ class VehicleSchedule {
   /// appliquee.
   String? get lastUpdate => raw['lastSettingsUpdateTimestamp'] as String?;
 
+  /// [now] tombe-t-il dans la plage de charge (quotidienne, commencee
+  /// aujourd'hui ou la veille) ? Null si la plage est illisible.
+  bool? chargeWindowContains(DateTime now) {
+    final parts = chargeWindowStart?.split(':');
+    final duration = chargeWindowDurationMinutes;
+    if (parts == null || parts.length < 2 || duration == null) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (duration >= 1440) return true;
+    for (final dayOffset in [0, -1]) {
+      final start = DateTime(now.year, now.month, now.day + dayOffset, hour, minute);
+      if (!now.isBefore(start) && now.isBefore(start.add(Duration(minutes: duration)))) return true;
+    }
+    return false;
+  }
+
   /// Temperature de preclimatisation (°C), commune a tous les programmes.
   num? get preconditioningTemperature => raw['preconditioningTemperature'] as num?;
 
