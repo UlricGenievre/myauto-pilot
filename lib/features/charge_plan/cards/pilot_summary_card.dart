@@ -10,9 +10,12 @@ import '../../../home_tab.dart';
 import '../../vehicle_status/vehicle_status_providers.dart';
 import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
+import 'in_force_summary.dart';
 
-/// Resume du pilotage sur l'onglet Etat : prochaine charge, objectif, etat
-/// du pilotage automatique. Un appui ouvre l'onglet Pilotage.
+/// Resume du pilotage sur l'onglet Etat : ce qui est en vigueur (meme bloc
+/// que l'onglet Pilotage, bouton Renvoyer compris), prochain envoi,
+/// objectif, etat du pilotage automatique. Un appui ouvre l'onglet
+/// Pilotage.
 class PilotSummaryCard extends ConsumerWidget {
   const PilotSummaryCard({super.key});
 
@@ -21,7 +24,8 @@ class PilotSummaryCard extends ConsumerWidget {
     final config = ref.watch(chargePlanConfigProvider).value;
     if (config == null) return const SizedBox.shrink();
     final soc = ref.watch(batteryStatusProvider).value?.batteryLevel;
-    final pilotState = config.enabled ? ref.watch(pilotStateProvider).value : null;
+    final now = DateTime.now();
+    final view = InForceView.watch(ref, config, soc: soc, now: now);
 
     return GestureDetector(
       onTap: () => ref.read(homeTabProvider.notifier).select(HomeTab.pilot),
@@ -30,7 +34,7 @@ class PilotSummaryCard extends ConsumerWidget {
         icon: Icons.bolt_outlined,
         child: Row(
           children: [
-            Expanded(child: _content(config, soc, pendingConfirmation: pilotState?.pendingId != null)),
+            Expanded(child: _content(config, soc, view, now)),
             const Icon(Icons.chevron_right, color: AppColors.textSecondary),
           ],
         ),
@@ -38,7 +42,10 @@ class PilotSummaryCard extends ConsumerWidget {
     );
   }
 
-  Widget _content(ChargePlanConfig config, int? soc, {required bool pendingConfirmation}) {
+  /// Meme bloc "En vigueur" que l'onglet Pilotage (charge immediate, etat
+  /// de l'envoi, plage modifiee hors app), puis le prochain envoi,
+  /// l'objectif et le mode du pilotage.
+  Widget _content(ChargePlanConfig config, int? soc, InForceView view, DateTime now) {
     final hasWindows = config.calendar.days.values.any((d) => d.allDay || d.windows.isNotEmpty);
     if (!hasWindows) {
       return const Text(
@@ -47,24 +54,18 @@ class PilotSummaryCard extends ConsumerWidget {
       );
     }
 
-    final now = DateTime.now();
     final planner = ChargePlanner(config);
-    final inForce = planner.commandInForce(now, socPercent: soc);
-    // La plage en vigueur tant qu'elle n'est pas terminee, sinon la suivante.
-    final next = inForce != null && inForce.windowEnd.isAfter(now)
-        ? inForce
-        : planner.upcomingCommand(now, socPercent: soc);
-    final charging = next != null && !next.windowStart.isAfter(now);
+    final upcoming = planner.upcomingCommand(now, socPercent: soc);
     final targets = planner.targets(now, now.add(const Duration(hours: 48)));
     final target = targets.isEmpty ? null : targets.first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (next != null) ...[
-          Text(charging ? 'Plage en cours' : 'Prochaine charge', style: hintStyle),
-          const SizedBox(height: 2),
-          Text(_window(next), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        InForceSummary(view: view),
+        if (upcoming != null) ...[
+          if (!view.isEmpty) const SizedBox(height: 8),
+          Text('Prochain envoi ${formatDayTime(upcoming.pushAt)} : ${_window(upcoming)}', style: hintStyle),
         ],
         if (target != null) ...[
           const SizedBox(height: 6),
@@ -78,19 +79,11 @@ class PilotSummaryCard extends ConsumerWidget {
         Text(
           !config.enabled
               ? 'Pilotage automatique désactivé'
-              : config.safeMode
+              : config.effectiveSafeMode
                   ? 'Pilotage automatique · mode sécurisé'
                   : 'Pilotage automatique',
           style: hintStyle,
         ),
-        if (pendingConfirmation)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Une plage attend votre confirmation.',
-              style: hintStyle.copyWith(color: AppColors.accent, fontWeight: FontWeight.w700),
-            ),
-          ),
       ],
     );
   }
