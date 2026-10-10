@@ -86,7 +86,7 @@ class _ChangedOutside extends StatelessWidget {
   Widget build(BuildContext context) {
     final start = ClockTime.tryParse(car.chargeWindowStart)!;
     final duration = car.chargeWindowDurationMinutes!;
-    final window = duration >= 1440
+    final window = duration == 1440
         ? '00:00 → 00:00 (24 h)'
         : '${start.format()} → ${ClockTime((start.minutes + duration) % 1440).format()}';
     return Padding(
@@ -94,7 +94,7 @@ class _ChangedOutside extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Modifié hors app : la voiture a la plage $window.', style: hintStyle.copyWith(color: AppColors.accent)),
+          Text('Modifié hors app avec $window.', style: hintStyle.copyWith(color: AppColors.accent)),
           if (resending)
             const Padding(
               padding: EdgeInsets.only(top: 4),

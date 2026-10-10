@@ -143,10 +143,20 @@ class VehicleSchedule {
     return VehicleSchedule(
       chargeMode: json['chargeModeRq'] as String?,
       chargeWindowStart: json['chargeTimeStart'] as String?,
-      chargeWindowDurationMinutes: json['chargeDuration'] as int?,
+      chargeWindowDurationMinutes: _dailyDuration(json['chargeDuration'] as int?),
       programs: programs.map((e) => VehicleProgram.fromJson(e as Map<String, dynamic>)).toList(),
       raw: json,
     );
+  }
+
+  /// La plage se repete chaque jour : une duree de plus de 24 h est ramenee
+  /// a sa partie quotidienne (1459 -> 19 ; 2880 -> 1440). Cas rencontre
+  /// apres une modification depuis MyRenault (plage 23:30 -> 23:49 que
+  /// l'app comptait comme une plage de 24 h).
+  static int? _dailyDuration(int? minutes) {
+    if (minutes == null || minutes <= 1440) return minutes;
+    final rest = minutes % 1440;
+    return rest == 0 ? 1440 : rest;
   }
 
   /// Copie profonde de [raw] avec les modifications demandees, prete a etre

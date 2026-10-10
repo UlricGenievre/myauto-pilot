@@ -76,4 +76,12 @@ void main() {
     expect(VehicleSchedule.fromJson({...realResponse(), 'chargeTimeStart': null}).chargeWindowContains(DateTime(2026, 9, 22)),
         isNull);
   });
+
+  test('duree de plus de 24 h ramenee a la plage quotidienne', () {
+    final schedule = VehicleSchedule.fromJson({...realResponse(), 'chargeTimeStart': '23:30', 'chargeDuration': 1459});
+    expect(schedule.chargeWindowDurationMinutes, 19);
+    expect(schedule.chargeWindowContains(DateTime(2026, 10, 10, 23, 40)), isTrue);
+    expect(schedule.chargeWindowContains(DateTime(2026, 10, 10, 23, 50)), isFalse);
+    expect(VehicleSchedule.fromJson(realResponse()).chargeWindowDurationMinutes, 1440);
+  });
 }
