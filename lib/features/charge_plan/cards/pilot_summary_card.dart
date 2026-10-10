@@ -13,8 +13,8 @@ import '../charge_plan_providers.dart';
 import 'in_force_summary.dart';
 
 /// Resume du pilotage sur l'onglet Etat : ce qui est en vigueur (meme bloc
-/// que l'onglet Pilotage, bouton Renvoyer compris), prochain envoi,
-/// objectif, etat du pilotage automatique. Un appui ouvre l'onglet
+/// que l'onglet Pilotage, bouton Renvoyer compris), objectif, etat du
+/// pilotage automatique. Un appui ouvre l'onglet
 /// Pilotage.
 class PilotSummaryCard extends ConsumerWidget {
   const PilotSummaryCard({super.key});
@@ -34,7 +34,7 @@ class PilotSummaryCard extends ConsumerWidget {
         icon: Icons.bolt_outlined,
         child: Row(
           children: [
-            Expanded(child: _content(config, soc, view, now)),
+            Expanded(child: _content(config, view, now)),
             const Icon(Icons.chevron_right, color: AppColors.textSecondary),
           ],
         ),
@@ -43,9 +43,9 @@ class PilotSummaryCard extends ConsumerWidget {
   }
 
   /// Meme bloc "En vigueur" que l'onglet Pilotage (charge immediate, etat
-  /// de l'envoi, plage modifiee hors app), puis le prochain envoi,
-  /// l'objectif et le mode du pilotage.
-  Widget _content(ChargePlanConfig config, int? soc, InForceView view, DateTime now) {
+  /// de l'envoi, plage modifiee hors app), puis l'objectif et le mode du
+  /// pilotage.
+  Widget _content(ChargePlanConfig config, InForceView view, DateTime now) {
     final hasWindows = config.calendar.days.values.any((d) => d.allDay || d.windows.isNotEmpty);
     if (!hasWindows) {
       return const Text(
@@ -55,7 +55,6 @@ class PilotSummaryCard extends ConsumerWidget {
     }
 
     final planner = ChargePlanner(config);
-    final upcoming = planner.upcomingCommand(now, socPercent: soc);
     final targets = planner.targets(now, now.add(const Duration(hours: 48)));
     final target = targets.isEmpty ? null : targets.first;
 
@@ -63,10 +62,6 @@ class PilotSummaryCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InForceSummary(view: view),
-        if (upcoming != null) ...[
-          if (!view.isEmpty) const SizedBox(height: 8),
-          Text('Prochain envoi ${formatDayTime(upcoming.pushAt)} : ${_window(upcoming)}', style: hintStyle),
-        ],
         if (target != null) ...[
           const SizedBox(height: 6),
           Text(
@@ -87,8 +82,4 @@ class PilotSummaryCard extends ConsumerWidget {
       ],
     );
   }
-
-  static String _window(ChargeCommand command) => command.durationMinutes >= 1440
-      ? '${formatDayTime(command.windowStart)} → 24 h'
-      : '${formatDayTime(command.windowStart)} → ${formatTimeOfDay(command.windowEnd)}';
 }
