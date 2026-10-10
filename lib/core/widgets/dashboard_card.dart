@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 /// anthracite, coins arrondis, liseret) avec un padding et un titre
 /// optionnels pour eviter de repeter cette structure sur chaque ecran.
 class DashboardCard extends StatelessWidget {
-  const DashboardCard({super.key, this.title, this.icon, required this.child, this.padding});
+  const DashboardCard({super.key, this.title, this.icon, required this.child, this.padding, this.trailing});
 
   final String? title;
   final IconData? icon;
   final Widget child;
   final EdgeInsetsGeometry? padding;
+
+  /// Action a droite du titre (ex. bouton de personnalisation).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +38,10 @@ class DashboardCard extends StatelessWidget {
                       color: Color(0xFF9A9A9E),
                     ),
                   ),
+                  if (trailing != null) ...[const Spacer(), trailing!],
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: trailing != null ? 8 : 16),
             ],
             child,
           ],

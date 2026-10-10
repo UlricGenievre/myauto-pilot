@@ -173,7 +173,7 @@ class _ChargeLine extends StatelessWidget {
   }
 }
 
-class _CockpitSection extends StatelessWidget {
+class _CockpitSection extends ConsumerWidget {
   const _CockpitSection({required this.asyncCockpit, required this.battery, required this.hvac});
 
   final AsyncValue<Cockpit?> asyncCockpit;
@@ -183,48 +183,80 @@ class _CockpitSection extends StatelessWidget {
   static String _number(double value, {int decimals = 0}) =>
       value.toStringAsFixed(decimals).replaceAll('.', ',');
 
+  /// Tuiles que le vehicule permet d'afficher (absentes : non fournies).
+  Map<VehicleTile, StatTile> _available(Cockpit cockpit) => {
+        if (cockpit.totalMileageKm case final mileage?)
+          VehicleTile.mileage: StatTile(
+            icon: Icons.speed_outlined,
+            value: '${_number(mileage)} km',
+            label: 'Kilométrage',
+          ),
+        if (cockpit.hasFuel)
+          // Autonomie en valeur principale, sinon la quantite seule.
+          VehicleTile.fuel: StatTile(
+            icon: Icons.local_gas_station_outlined,
+            value: (cockpit.fuelAutonomyKm ?? 0) > 0
+                ? '${cockpit.fuelAutonomyKm} km'
+                : '${_number(cockpit.fuelQuantityLiters!)} L',
+            label: (cockpit.fuelAutonomyKm ?? 0) > 0 && (cockpit.fuelQuantityLiters ?? 0) > 0
+                ? 'Carburant · ${_number(cockpit.fuelQuantityLiters!)} L'
+                : 'Carburant',
+          ),
+        if (hvac?.internalTemperature case final inside?)
+          VehicleTile.cabin: StatTile(
+            icon: Icons.thermostat_outlined,
+            value: '${_number(inside, decimals: inside % 1 == 0 ? 0 : 1)} °C',
+            label: hvac!.isStale() ? 'Habitacle, ${formatRelativeDateTime(hvac!.lastUpdated!)}' : 'Habitacle',
+          ),
+        if (battery?.batteryTemperature case final temperature?)
+          VehicleTile.batteryTemperature:
+              StatTile(icon: Icons.device_thermostat_rounded, value: '$temperature °C', label: 'Batterie'),
+      };
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hidden = ref.watch(hiddenVehicleTilesProvider).value ?? const {};
     return asyncCockpit.when(
       data: (cockpit) {
         if (cockpit == null) return const SizedBox.shrink();
-        final tiles = <Widget>[
-          StatTile(
-            icon: Icons.speed_outlined,
-            value: cockpit.totalMileageKm != null ? '${_number(cockpit.totalMileageKm!)} km' : '-',
-            label: 'Kilométrage',
-          ),
-          if (cockpit.hasFuel)
-            // Autonomie en valeur principale, sinon la quantite seule.
-            StatTile(
-              icon: Icons.local_gas_station_outlined,
-              value: (cockpit.fuelAutonomyKm ?? 0) > 0
-                  ? '${cockpit.fuelAutonomyKm} km'
-                  : '${_number(cockpit.fuelQuantityLiters!)} L',
-              label: (cockpit.fuelAutonomyKm ?? 0) > 0 && (cockpit.fuelQuantityLiters ?? 0) > 0
-                  ? 'Carburant · ${_number(cockpit.fuelQuantityLiters!)} L'
-                  : 'Carburant',
-            ),
-          if (hvac?.internalTemperature case final inside?)
-            StatTile(
-              icon: Icons.thermostat_outlined,
-              value: '${_number(inside, decimals: inside % 1 == 0 ? 0 : 1)} °C',
-              label: hvac!.isStale() ? 'Habitacle, ${formatRelativeDateTime(hvac!.lastUpdated!)}' : 'Habitacle',
-            )
-          else if (battery?.batteryTemperature case final temperature?)
-            StatTile(icon: Icons.thermostat_outlined, value: '$temperature °C', label: 'Batterie'),
+        final available = _available(cockpit);
+        final tiles = [
+          for (final tile in VehicleTile.values)
+            if (available[tile] case final widget? when !hidden.contains(tile)) widget,
         ];
+        // Jusqu'a 3 tuiles par ligne ; 4 : deux lignes de 2.
+        final perRow = tiles.length == 4 ? 2 : 3;
         return DashboardCard(
           title: 'Véhicule',
           icon: Icons.directions_car_outlined,
-          child: Row(
-            children: [
-              for (final (i, tile) in tiles.indexed) ...[
-                if (i > 0) const SizedBox(width: 12),
-                tile,
-              ],
-            ],
+          trailing: IconButton(
+            icon: const Icon(Icons.tune_rounded, size: 20, color: AppColors.textSecondary),
+            tooltip: 'Informations affichées',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              backgroundColor: AppColors.surface,
+              builder: (_) => _VehicleTilesSheet(available: available.keys.toSet()),
+            ),
           ),
+          child: tiles.isEmpty
+              ? const Text('Aucune information choisie.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500))
+              : Column(
+                  children: [
+                    for (var start = 0; start < tiles.length; start += perRow) ...[
+                      if (start > 0) const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          for (final (i, tile) in tiles.skip(start).take(perRow).indexed) ...[
+                            if (i > 0) const SizedBox(width: 12),
+                            tile,
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
         );
       },
       loading: () => const DashboardCard(
@@ -234,6 +266,43 @@ class _CockpitSection extends StatelessWidget {
       error: (error, _) => DashboardCard(
         title: 'Véhicule',
         child: Text('Erreur : $error', style: const TextStyle(color: AppColors.error)),
+      ),
+    );
+  }
+}
+
+/// Choix des informations de la carte "Vehicule". Celles que le vehicule ne
+/// fournit pas sont grisees.
+class _VehicleTilesSheet extends ConsumerWidget {
+  const _VehicleTilesSheet({required this.available});
+
+  final Set<VehicleTile> available;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hidden = ref.watch(hiddenVehicleTilesProvider).value ?? const {};
+    final controller = ref.read(hiddenVehicleTilesProvider.notifier);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Informations affichées', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+            for (final tile in VehicleTile.values)
+              CheckboxListTile(
+                value: available.contains(tile) && !hidden.contains(tile),
+                activeColor: AppColors.accent,
+                title: Text(tile.label),
+                subtitle: available.contains(tile) ? null : const Text('Non disponible sur ce véhicule'),
+                onChanged: available.contains(tile) ? (on) => controller.setVisible(tile, on ?? false) : null,
+              ),
+          ],
+        ),
       ),
     );
   }

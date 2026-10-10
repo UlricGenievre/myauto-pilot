@@ -52,6 +52,14 @@ class _MemoryAppPrefs implements AppPrefs {
 
   @override
   Future<void> finishTutorial() async => tutorial = false;
+
+  Set<String> hidden = {};
+
+  @override
+  Future<Set<String>> get hiddenVehicleTiles async => hidden;
+
+  @override
+  Future<void> setHiddenVehicleTiles(Set<String> value) async => hidden = value;
 }
 
 final _fakeLocales = renaultLocalesProvider.overrideWith(
