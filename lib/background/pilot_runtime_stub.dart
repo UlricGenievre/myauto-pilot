@@ -11,6 +11,8 @@ Future<void> confirmPilotCommand(String commandId) async {}
 
 Future<void> ignorePilotCommand(String commandId) async {}
 
+Future<void> resendPilotCommand() async {}
+
 Future<void> confirmMinimumCharge() async {}
 
 Future<void> ignoreMinimumCharge() async {}

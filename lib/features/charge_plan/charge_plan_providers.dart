@@ -10,6 +10,7 @@ import '../../core/models/charge_plan_config.dart';
 import '../../core/storage/charge_plan_storage.dart';
 import '../auth/auth_controller.dart';
 import '../demo/demo_data.dart';
+import '../schedule/schedule_providers.dart';
 
 /// En demonstration : stockage en memoire, neuf a chaque entree.
 final chargePlanStorageProvider = Provider<ChargePlanStorage>(
@@ -53,7 +54,8 @@ final pilotStateProvider = FutureProvider.autoDispose<PilotState>(
 final notificationsAllowedProvider = FutureProvider.autoDispose<bool>((ref) => notificationsAllowed());
 final exactAlarmsAllowedProvider = FutureProvider.autoDispose<bool>((ref) => exactAlarmsAllowed());
 
-/// Passage du pilote depuis l'app, puis relecture de son etat.
+/// Passage du pilote depuis l'app, puis relecture de son etat et des
+/// reglages de la voiture (un envoi a pu les modifier).
 /// [invalidate] : `ref.invalidate` d'un `Ref` ou d'un `WidgetRef`.
 Future<void> refreshPilot(void Function(ProviderOrFamily provider, {bool asReload}) invalidate) async {
   try {
@@ -62,4 +64,5 @@ Future<void> refreshPilot(void Function(ProviderOrFamily provider, {bool asReloa
     debugPrint('runPilotTick: $error');
   }
   invalidate(pilotStateProvider);
+  invalidate(vehicleScheduleProvider);
 }

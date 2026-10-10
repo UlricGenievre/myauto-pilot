@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_formatting.dart';
 import '../../../core/widgets/dashboard_card.dart';
 import '../../auth/auth_controller.dart';
+import '../../schedule/schedule_providers.dart';
 import '../../vehicle/vehicle_providers.dart';
 import '../../vehicle_status/vehicle_status_providers.dart';
 import '../charge_plan_pickers.dart';
@@ -38,7 +39,11 @@ class _ImmediateChargeCardState extends ConsumerState<ImmediateChargeCard> {
     final state = ref.watch(pilotStateProvider).value;
     final now = DateTime.now();
     final boost = state?.boost;
-    final active = boost != null && boost.activeAt(now) ? boost : null;
+    // Plage modifiee hors app (ex. depuis MyRenault) : la charge n'est plus
+    // dans la voiture, la carte revient a son etat initial (le pilote
+    // l'abandonne a son prochain passage).
+    final car = ref.watch(vehicleScheduleProvider).value;
+    final active = boost != null && boost.activeAt(now) && (car == null || boost.inCar(car) != false) ? boost : null;
 
     return DashboardCard(
       title: 'Charge immédiate',

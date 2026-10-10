@@ -186,6 +186,8 @@ class ImmediateCharge {
   const ImmediateCharge({
     required this.sentAt,
     required this.end,
+    this.windowStart,
+    this.durationMinutes,
     this.targetPercent,
     this.manual = false,
     this.displaced,
@@ -197,6 +199,19 @@ class ImmediateCharge {
 
   /// Fin de la charge (fin de la plage d'heures creuses si [merged]).
   final DateTime end;
+
+  /// Plage envoyee a la voiture (null : charge envoyee par une version
+  /// anterieure). Distincte de [end] une fois la charge arretee.
+  final DateTime? windowStart;
+  final int? durationMinutes;
+
+  /// La voiture a-t-elle encore cette plage ? Non si elle a ete modifiee
+  /// hors app (ex. depuis MyRenault) ; null si on ne peut pas le dire.
+  bool? inCar(VehicleSchedule car) {
+    final start = windowStart;
+    final duration = durationMinutes;
+    return start == null || duration == null ? null : car.hasChargeWindow(start, duration);
+  }
 
   /// Niveau vise (charge minimale, ou cible demandee).
   final int? targetPercent;
@@ -221,6 +236,8 @@ class ImmediateCharge {
   ImmediateCharge copyWith({DateTime? end, CommandMark? displaced, bool? merged}) => ImmediateCharge(
         sentAt: sentAt,
         end: end ?? this.end,
+        windowStart: windowStart,
+        durationMinutes: durationMinutes,
         targetPercent: targetPercent,
         manual: manual,
         displaced: displaced ?? this.displaced,
@@ -231,6 +248,8 @@ class ImmediateCharge {
   Map<String, dynamic> toJson() => {
         'sentAt': sentAt.toIso8601String(),
         'end': end.toIso8601String(),
+        if (windowStart != null) 'windowStart': windowStart!.toIso8601String(),
+        if (durationMinutes != null) 'durationMinutes': durationMinutes,
         if (targetPercent != null) 'targetPercent': targetPercent,
         if (manual) 'manual': true,
         'displaced': displaced?.toJson(),
@@ -246,6 +265,8 @@ class ImmediateCharge {
     return ImmediateCharge(
       sentAt: sentAt,
       end: end,
+      windowStart: DateTime.tryParse(json['windowStart'] as String? ?? ''),
+      durationMinutes: json['durationMinutes'] as int?,
       targetPercent: json['targetPercent'] as int?,
       manual: json['manual'] as bool? ?? false,
       displaced: CommandMark.fromJson(json['displaced']),

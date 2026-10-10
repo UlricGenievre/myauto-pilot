@@ -856,4 +856,88 @@ void main() {
       expect(store.state.manualChargeTarget, isNull);
     });
   });
+
+  group('Plage modifiee hors app', () {
+    test('Renvoyer : la plage envoyee repart telle quelle, sans autre confirmation', () async {
+      final store = MemoryStore(pilotConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle();
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      await pilot(store, platform, vehicle, at(22, 21, 21)).confirm('window-20260923T0115');
+      await pilot(store, platform, vehicle, at(22, 21, 21)).executeConfirmed();
+      expect(store.state.sentId, 'window-20260923T0115');
+
+      // Modification depuis MyRenault.
+      final car = await vehicle.fetchSchedule('VIN');
+      await vehicle.updateSchedule('VIN', car.toUpdatedJson(chargeTimeStart: '23:00', chargeDurationMinutes: 420));
+      await vehicle.fetchSchedule('VIN');
+      await vehicle.fetchSchedule('VIN');
+      final writes = vehicle.writes.length;
+
+      // Recalcul : rien n'est renvoye de lui-meme.
+      await pilot(store, platform, vehicle, at(22, 21, 30)).tick();
+      expect(vehicle.writes, hasLength(writes));
+
+      await pilot(store, platform, vehicle, at(22, 21, 31)).resend();
+      expect(platform.wakes[PilotWake.execute], isNotNull);
+      await pilot(store, platform, vehicle, at(22, 21, 31)).tick();
+      expect(vehicle.writes, hasLength(writes));
+      await pilot(store, platform, vehicle, at(22, 21, 31)).executeConfirmed();
+      expect(vehicle.writes, hasLength(writes + 1));
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(vehicle.writes.last['chargeDuration'], 300);
+      expect(store.state.confirmed, isNull);
+    });
+  });
+
+  group('Charge immediate modifiee hors app', () {
+    ChargePlanConfig manualConfig({bool enabled = true}) =>
+        pilotConfig(safeMode: false, enabled: enabled).copyWith(batteryCapacityKwh: 52, chargePowerKw: 7.4);
+
+    Future<void> changeInMyRenault(FakeVehicle vehicle) async {
+      final car = await vehicle.fetchSchedule('VIN');
+      await vehicle.updateSchedule('VIN', car.toUpdatedJson(chargeTimeStart: '23:00', chargeDurationMinutes: 420));
+      await vehicle.fetchSchedule('VIN');
+      await vehicle.fetchSchedule('VIN');
+    }
+
+    test('pilotage actif : abandonnee sans rien renvoyer, la plage remplacee compte comme envoyee', () async {
+      final store = MemoryStore(manualConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 50);
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).startImmediateCharge(80);
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      expect(store.state.boost?.windowStart, at(22, 21, 25));
+      await changeInMyRenault(vehicle);
+      final writes = vehicle.writes.length;
+
+      await pilot(store, platform, vehicle, at(22, 22)).tick();
+      expect(store.state.boost, isNull);
+      expect(store.state.sentId, 'window-20260923T0115');
+      expect(store.state.lastResult, contains('modifiée hors app'));
+      expect(platform.wakes.containsKey(PilotWake.boostEnd), isFalse);
+
+      await pilot(store, platform, vehicle, at(22, 23, 41)).tick();
+      expect(vehicle.writes, hasLength(writes));
+    });
+
+    test('pilotage coupe : les reglages d\'avant ne sont pas remis', () async {
+      final store = MemoryStore(manualConfig(enabled: false));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 50);
+
+      await pilot(store, platform, vehicle, at(22, 21, 30)).startImmediateCharge(80);
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      await changeInMyRenault(vehicle);
+      final writes = vehicle.writes.length;
+
+      await pilot(store, platform, vehicle, at(22, 23, 41)).tick();
+      expect(vehicle.writes, hasLength(writes));
+      expect(store.state.boost, isNull);
+      expect((await vehicle.fetchSchedule('VIN')).chargeWindowStart, '23:00');
+    });
+  });
 }

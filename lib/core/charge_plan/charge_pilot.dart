@@ -119,10 +119,15 @@ class ChargePilot {
       );
       final now = _clock();
       if (writable && state.boost != null) {
-        if (!state.boost!.activeAt(now)) {
-          state = await _finishImmediate(config, state, null, await _safeGateway(), now);
+        final vehicle = await _safeGateway();
+        state = await _dropIfChangedOutside(config, state, null, vehicle);
+        final boost = state.boost;
+        if (boost == null) {
+          // Abandonnee : plage modifiee hors app.
+        } else if (!boost.activeAt(now)) {
+          state = await _finishImmediate(config, state, null, vehicle, now);
         } else {
-          await platform.scheduleWake(PilotWake.boostEnd, state.boost!.end);
+          await platform.scheduleWake(PilotWake.boostEnd, boost.end);
         }
       } else {
         await platform.cancelWake(PilotWake.boostEnd);
@@ -139,6 +144,7 @@ class ChargePilot {
     final planner = ChargePlanner(config);
     final command = planner.commandInForce(now, socPercent: soc);
 
+    if (state.boost != null) state = await _dropIfChangedOutside(config, state, command, vehicle);
     final finished = state.boost;
     if (finished != null && !finished.activeAt(now)) {
       state = await _finishImmediate(config, state, command, vehicle, now);
@@ -187,6 +193,41 @@ class ChargePilot {
   }
 
   // --- Charge immediate ---------------------------------------------------------
+
+  /// Charge immediate dont la plage a ete modifiee hors app (ex. depuis
+  /// MyRenault) : abandonnee sans rien renvoyer, ce qui ecraserait la
+  /// modification. Pilotage actif : la plage d'heures creuses qu'elle
+  /// remplacait (ou, a defaut, [command], celle en vigueur) compte comme
+  /// envoyee, et la carte "Charge pilotee" signale l'ecart avec la voiture.
+  Future<PilotState> _dropIfChangedOutside(
+    ChargePlanConfig config,
+    PilotState state,
+    ChargeCommand? command,
+    PilotVehicleGateway? vehicle,
+  ) async {
+    final boost = state.boost;
+    if (boost == null || vehicle == null) return state;
+    // Ecriture en cours : la voiture ne l'a peut-etre pas encore appliquee.
+    final since = (await store.loadState()).sendingSince;
+    if (since != null && _clock().difference(since) < sendLockTimeout) return state;
+    final VehicleSchedule car;
+    try {
+      car = await vehicle.fetchSchedule(config.vehicleVin!);
+    } catch (_) {
+      return state;
+    }
+    if (boost.inCar(car) != false) return state;
+
+    await platform.cancelWake(PilotWake.boostEnd);
+    final keep = !config.enabled || boost.merged
+        ? null
+        : boost.displaced ?? (command == null ? null : CommandMark.of(command, config.fingerprint));
+    return _withResult(
+      state.copyWith(clearBoost: true, sent: keep),
+      'Charge immédiate abandonnée : sa plage a été modifiée hors app, rien n\'a été renvoyé.',
+      ok: false,
+    );
+  }
 
   /// Charge immediate terminee (ou arretee) : remettre dans la voiture ce
   /// qu'elle a remplace, sans confirmation (le telephone peut etre en mode
@@ -334,6 +375,8 @@ class ChargePilot {
 
     state = state.copyWith(boostConfirmed: false, clearManualChargeTarget: true);
     final vehicle = await _safeGateway();
+    // Charge en cours modifiee hors app : ne pas reprendre ses reglages d'avant.
+    if (state.boost != null) state = await _dropIfChangedOutside(config, state, null, vehicle);
     final battery = vehicle == null ? null : await _safeBattery(vehicle, vin);
     final now = _clock();
     final target = manualTarget ?? minimum!;
@@ -379,6 +422,8 @@ class ChargePilot {
         boost: ImmediateCharge(
           sentAt: now,
           end: command.windowEnd,
+          windowStart: command.windowStart,
+          durationMinutes: command.durationMinutes,
           targetPercent: target,
           manual: manualTarget != null,
           displaced: merged == null ? displaced : null,
@@ -425,6 +470,32 @@ class ChargePilot {
         ? pending
         : CommandMark(id: commandId, signature: '', configFingerprint: '');
     await store.saveState(state.copyWith(confirmed: confirmed, clearPending: true));
+    await platform.scheduleWake(PilotWake.execute, _clock().add(const Duration(seconds: 2)));
+  }
+
+  /// Bouton "Renvoyer" (plage modifiee hors app, ex. depuis MyRenault) :
+  /// renvoie telle quelle la derniere plage envoyee, sans autre confirmation
+  /// (son contenu est affiche a cote du bouton). Comme [confirm], l'envoi est
+  /// fait par le reveil "execution", qui verifie qu'elle est toujours en
+  /// vigueur.
+  Future<void> resend() async {
+    final config = await store.load();
+    final state = await store.loadState();
+    final sent = state.sent;
+    if (sent == null || !sent.hasContent) return;
+    await store.saveState(state.copyWith(
+      confirmed: CommandMark(
+        id: sent.id,
+        signature: sent.signature,
+        configFingerprint: config.fingerprint,
+        windowStart: sent.windowStart,
+        durationMinutes: sent.durationMinutes,
+        readyAt: sent.readyAt,
+        defaultReadyAt: sent.defaultReadyAt,
+        climate: sent.climate,
+        climateTemperature: sent.climateTemperature,
+      ),
+    ));
     await platform.scheduleWake(PilotWake.execute, _clock().add(const Duration(seconds: 2)));
   }
 

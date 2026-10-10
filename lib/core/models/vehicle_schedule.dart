@@ -105,6 +105,19 @@ class VehicleSchedule {
   /// appliquee.
   String? get lastUpdate => raw['lastSettingsUpdateTimestamp'] as String?;
 
+  /// La plage de charge est-elle [start] (heure seule) + [durationMinutes] ?
+  /// Null si elle est illisible. Sert a reperer une plage modifiee hors app
+  /// (ex. depuis MyRenault).
+  bool? hasChargeWindow(DateTime start, int durationMinutes) {
+    final parts = chargeWindowStart?.split(':');
+    final duration = chargeWindowDurationMinutes;
+    if (parts == null || parts.length < 2 || duration == null) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return hour == start.hour && minute == start.minute && duration == durationMinutes;
+  }
+
   /// [now] tombe-t-il dans la plage de charge (quotidienne, commencee
   /// aujourd'hui ou la veille) ? Null si la plage est illisible.
   bool? chargeWindowContains(DateTime now) {

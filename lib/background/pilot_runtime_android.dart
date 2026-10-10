@@ -79,6 +79,12 @@ Future<void> ignoreMinimumCharge() async {
   await _createPilot().ignoreMinimum();
 }
 
+/// Bouton "Renvoyer" d'une plage modifiee hors app.
+Future<void> resendPilotCommand() async {
+  if (!pilotSupported) return;
+  await _createPilot().resend();
+}
+
 /// Boutons "Charger maintenant"/"Arreter" de la charge immediate.
 Future<void> startImmediateCharge(int targetPercent) async {
   if (!pilotSupported) return;
