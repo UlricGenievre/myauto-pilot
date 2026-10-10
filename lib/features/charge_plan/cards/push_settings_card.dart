@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/models/charge_plan_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/dashboard_card.dart';
-import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
 
 /// Reglages : quand envoyer une plage a la voiture.
@@ -32,6 +31,10 @@ class _PushSettingsCardState extends State<PushSettingsCard> {
     return DashboardCard(
       title: 'Envoi à la voiture',
       icon: Icons.send_outlined,
+      help: 'Envoi de la plage : délai entre l\'envoi de la plage à la voiture et son début. Un envoi plus tôt '
+          'laisse le temps de confirmer en mode sécurisé.\n\n'
+          'Sans objectif, l\'heure « prête à » envoyée à la voiture est fixée à 12:00 la veille de l\'envoi, '
+          'active ce seul jour : déjà passée à la réception, elle n\'est jamais atteinte.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -46,12 +49,6 @@ class _PushSettingsCardState extends State<PushSettingsCard> {
             reversed: true,
             onChanged: (v) => setState(() => _pushLead = v),
             onChangeEnd: (v) => widget.controller.edit((c) => c.copyWith(pushLeadMinutes: v)),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Sans objectif, l\'heure « prête à » envoyée à la voiture est fixée à 12:00 la veille de l\'envoi, '
-            'active ce seul jour : déjà passée à la réception, elle n\'est jamais atteinte.',
-            style: hintStyle,
           ),
         ],
       ),

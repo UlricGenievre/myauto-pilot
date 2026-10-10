@@ -79,15 +79,12 @@ class CalendarCard extends StatelessWidget {
     return DashboardCard(
       title: 'Plages de charge',
       icon: Icons.bolt_outlined,
+      help: 'Saisissez chaque plage d\'heures creuses une fois, puis les jours où elle s\'applique. Une plage '
+          'qui passe minuit appartient au jour où elle commence.\n\n'
+          'Une plage décochée sur tous les jours est supprimée.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Saisissez chaque plage d\'heures creuses une fois, puis les jours où elle s\'applique. '
-            'Une plage qui passe minuit appartient au jour où elle commence.',
-            style: hintStyle,
-          ),
-          const SizedBox(height: 12),
           _RuleRow(
             title: const Text('Toute la journée', style: TextStyle(fontWeight: FontWeight.w700)),
             days: allDayDays,
@@ -131,8 +128,6 @@ class CalendarCard extends StatelessWidget {
               save((c) => _apply(c, addDays: days.isEmpty ? _allDays : days, replacement: added));
             },
           ),
-          if (rules.isNotEmpty)
-            const Text('Une plage décochée sur tous les jours est supprimée.', style: hintStyle),
         ],
       ),
     );

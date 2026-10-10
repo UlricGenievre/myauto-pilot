@@ -26,6 +26,14 @@ class PreviewCard extends ConsumerWidget {
     return DashboardCard(
       title: 'Charge pilotée',
       icon: Icons.insights_outlined,
+      help: 'En vigueur : ce qui est dans la voiture en ce moment, plage d\'heures creuses calculée par l\'app ou '
+          'charge immédiate. Envoyé à : heure réelle de l\'envoi. À renvoyer : un changement de paramétrage (objectif '
+          'ajouté ou retiré…) a modifié la plage, elle est renvoyée (ou proposée) au prochain passage du pilote. À confirmer : voir la '
+          'notification (mode sécurisé).\n\n'
+          'Modifié hors app : la plage de la voiture a été changée ailleurs (MyRenault…). Renvoyer remet celle de '
+          'l\'app ; sinon, elle reste jusqu\'au prochain envoi prévu.\n\n'
+          'Prochain envoi : la plage suivante et l\'heure à laquelle elle sera envoyée, calculées avec le niveau de '
+          'batterie actuel.',
       child: view.isEmpty && upcoming == null
           ? const Text('Définissez des plages de charge pour voir le calcul.', style: hintStyle)
           : Column(

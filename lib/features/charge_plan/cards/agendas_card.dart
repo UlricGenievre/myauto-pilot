@@ -19,11 +19,10 @@ class AgendasCard extends StatelessWidget {
     return DashboardCard(
       title: 'Agendas d\'objectifs',
       icon: Icons.event_repeat_outlined,
+      help: 'Un seul agenda actif à la fois. Touchez la pastille pour l\'activer.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Un seul agenda actif à la fois. Touchez la pastille pour l\'activer.', style: hintStyle),
-          const SizedBox(height: 8),
           for (final agenda in config.agendas)
             ListTile(
               contentPadding: EdgeInsets.zero,

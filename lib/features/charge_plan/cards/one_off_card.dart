@@ -21,16 +21,16 @@ class OneOffCard extends StatelessWidget {
     return DashboardCard(
       title: 'Objectif exceptionnel',
       icon: Icons.priority_high_rounded,
+      help: 'Pour un besoin ponctuel (« demain 7h à 100 % »). Il remplace l\'objectif de l\'agenda ce jour-là, '
+          'puis s\'efface.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isActive) ...[
             Text('Prête ${formatDayTime(oneOff.readyAt)} à ${oneOff.targetPercent} %${oneOff.climate ? ', climatisée à ${oneOff.climateTemperature} °C' : ''}',
                 style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            const Text('Remplace l\'objectif de l\'agenda ce jour-là, puis s\'efface.', style: hintStyle),
           ] else
-            const Text('Aucun. Pour un besoin ponctuel ("demain 7h à 100 %").', style: hintStyle),
+            const Text('Aucun.', style: hintStyle),
           const SizedBox(height: 8),
           Row(
             children: [

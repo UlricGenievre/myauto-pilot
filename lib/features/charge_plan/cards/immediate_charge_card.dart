@@ -48,6 +48,12 @@ class _ImmediateChargeCardState extends ConsumerState<ImmediateChargeCard> {
     return DashboardCard(
       title: 'Charge immédiate',
       icon: Icons.bolt_rounded,
+      help: 'Lance la charge maintenant, même en heures pleines, jusqu\'au niveau choisi, que l\'envoi auto soit '
+          'actif ou non.\n\n'
+          'À la fin, ou en appuyant sur Arrêter, la voiture retrouve sa plage d\'heures creuses (envoi auto actif) '
+          'ou ses réglages d\'avant. Si la charge atteint la plage d\'heures creuses suivante, elle se prolonge '
+          'jusqu\'à sa fin.\n\n'
+          'Mode sécurisé : une confirmation est demandée avant le lancement.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -125,8 +131,6 @@ class _ImmediateChargeCardState extends ConsumerState<ImmediateChargeCard> {
                                     : null;
 
     return [
-      const Text('Lance la charge maintenant, même en heures pleines, jusqu\'au niveau choisi.', style: hintStyle),
-      const SizedBox(height: 8),
       PercentSlider(value: _target, onChanged: (p) => setState(() => _target = p)),
       Text(
         blocker ??

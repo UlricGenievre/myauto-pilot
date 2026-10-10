@@ -32,11 +32,17 @@ class ChargeThresholdsCard extends StatelessWidget {
     return DashboardCard(
       title: 'Seuils de charge',
       icon: Icons.battery_5_bar_rounded,
+      help: 'Charge maximale : les plages sont raccourcies pour s\'arrêter vers ce niveau, d\'après la batterie au '
+          'moment de l\'envoi. Un objectif plus haut passe outre.\n\n'
+          'Charge minimale : batterie en dessous et voiture branchée, le pilotage automatique propose une charge '
+          'immédiate jusqu\'à ce niveau, même en heures pleines. Rien n\'est lancé sans votre accord.\n\n'
+          'Les deux nécessitent la capacité et la puissance de charge (carte « Batterie et charge »).',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Nécessitent la capacité et la puissance de charge (carte « Batterie et charge »).',
-              style: hintStyle),
+          if (config.batteryCapacityKwh == null || config.chargePowerKw == null)
+            const Text('Renseignez d\'abord la capacité et la puissance de charge (carte « Batterie et charge »).',
+                style: hintStyle),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: max != null,
@@ -48,11 +54,6 @@ class ChargeThresholdsCard extends StatelessWidget {
                   )
                 : c.copyWith(clearMaxCharge: true)),
             title: const Text('Charge maximale'),
-            subtitle: const Text(
-              'Les plages sont raccourcies pour s\'arrêter vers ce niveau, d\'après la batterie au moment de '
-              'l\'envoi. Un objectif plus haut passe outre.',
-              style: hintStyle,
-            ),
           ),
           if (max != null)
             PercentSlider(
@@ -72,11 +73,6 @@ class ChargeThresholdsCard extends StatelessWidget {
                 ? c.copyWith(minChargePercent: _defaultMin.clamp(_minRange.$1, minCeiling))
                 : c.copyWith(clearMinCharge: true)),
             title: const Text('Charge minimale'),
-            subtitle: const Text(
-              'Batterie en dessous et voiture branchée : le pilotage automatique propose une charge immédiate '
-              'jusqu\'à ce niveau, même en heures pleines. Rien n\'est lancé sans votre accord.',
-              style: hintStyle,
-            ),
           ),
           if (min != null)
             PercentSlider(

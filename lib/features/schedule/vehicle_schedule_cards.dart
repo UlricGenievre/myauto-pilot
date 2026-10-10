@@ -130,6 +130,7 @@ class _ChargeWindowCard extends StatelessWidget {
     return DashboardCard(
       title: 'Plage de charge',
       icon: Icons.bolt_outlined,
+      help: 'Commune à tous les programmes. Active seulement si au moins un programme est actif.',
       child: asyncSchedule.when(
         data: (schedule) {
           if (schedule == null) {
@@ -157,12 +158,6 @@ class _ChargeWindowCard extends StatelessWidget {
                     inactiveLabel: 'Inactive',
                   ),
                 ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Commune à tous les programmes${schedule.chargeMode != null ? ' · mode ${schedule.chargeMode}' : ''}. '
-                'Active seulement si au moins un programme est actif.',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
               ),
             ],
           );

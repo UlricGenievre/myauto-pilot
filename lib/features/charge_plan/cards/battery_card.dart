@@ -6,7 +6,6 @@ import '../../../core/models/charge_plan_config.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/dashboard_card.dart';
 import '../../vehicle_status/vehicle_status_providers.dart';
-import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
 
 class BatteryCard extends ConsumerStatefulWidget {
@@ -75,11 +74,11 @@ class _BatteryCardState extends ConsumerState<BatteryCard> {
     return DashboardCard(
       title: 'Batterie et charge',
       icon: Icons.battery_charging_full_rounded,
+      help: 'Sert à vérifier si une plage suffit pour atteindre l\'objectif, et à calculer les seuils et la '
+          'charge immédiate.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Sert à vérifier si une plage suffit pour atteindre l\'objectif.', style: hintStyle),
-          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(

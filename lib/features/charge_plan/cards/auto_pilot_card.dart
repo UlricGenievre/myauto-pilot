@@ -14,8 +14,8 @@ import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
 
 /// Boutons du pilotage (envoi auto, mode securise) et etat d'execution :
-/// prochain envoi, confirmation en attente, dernier resultat. Le "?"
-/// affiche l'explication de chaque bouton.
+/// prochain envoi, confirmation en attente, dernier resultat. L'aide ("?")
+/// explique chaque bouton.
 class AutoPilotCard extends ConsumerStatefulWidget {
   const AutoPilotCard({super.key, required this.config, required this.controller});
 
@@ -27,8 +27,6 @@ class AutoPilotCard extends ConsumerStatefulWidget {
 }
 
 class _AutoPilotCardState extends ConsumerState<AutoPilotCard> {
-  var _help = false;
-
   @override
   Widget build(BuildContext context) {
     final config = widget.config;
@@ -57,12 +55,12 @@ class _AutoPilotCardState extends ConsumerState<AutoPilotCard> {
     return DashboardCard(
       title: 'Pilotage automatique',
       icon: Icons.autorenew_rounded,
-      trailing: IconButton(
-        icon: Icon(_help ? Icons.help_rounded : Icons.help_outline_rounded, size: 20, color: AppColors.textSecondary),
-        tooltip: _help ? 'Masquer l\'aide' : 'Aide',
-        visualDensity: VisualDensity.compact,
-        onPressed: () => setState(() => _help = !_help),
-      ),
+      help: 'Envoi auto des plages : la plage est envoyée à la voiture $leadText avant chaque plage d\'heures '
+          'creuses.\n\n'
+          '${support.forcesSafeMode ? 'Mode sécurisé : obligatoire tant que votre modèle n\'est pas vérifié, chaque '
+              'envoi attend votre confirmation.' : 'Mode sécurisé : chaque envoi est proposé par notification et n\'est '
+              'fait qu\'après votre confirmation. Il s\'applique aussi à la charge immédiate (confirmation dans '
+              'l\'app).'}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -90,25 +88,9 @@ class _AutoPilotCardState extends ConsumerState<AutoPilotCard> {
             const SizedBox(height: 8),
             Text(blocker, style: hintStyle),
           ],
-          if (support.forcesSafeMode && !_help) ...[
+          if (support.forcesSafeMode) ...[
             const SizedBox(height: 8),
             const Text('Mode sécurisé imposé tant que votre modèle n\'est pas vérifié.', style: hintStyle),
-          ],
-          if (_help) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Envoi auto des plages : la plage est envoyée à la voiture $leadText avant chaque plage d\'heures creuses.',
-              style: hintStyle,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              support.forcesSafeMode
-                  ? 'Mode sécurisé : obligatoire tant que votre modèle n\'est pas vérifié, chaque envoi attend votre '
-                      'confirmation.'
-                  : 'Mode sécurisé : chaque envoi est proposé par notification et n\'est fait qu\'après votre '
-                      'confirmation. Il s\'applique aussi à la charge immédiate (confirmation dans l\'app).',
-              style: hintStyle,
-            ),
           ],
           if (config.enabled && pilotSupported) ...[
             _PermissionWarnings(safeMode: config.effectiveSafeMode),

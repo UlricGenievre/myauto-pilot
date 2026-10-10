@@ -75,6 +75,8 @@ class _RenaultKeysCardState extends ConsumerState<RenaultKeysCard> {
     return DashboardCard(
       title: 'Clés Renault',
       icon: Icons.key_outlined,
+      help: 'Si Renault les change, l\'app récupère les nouvelles d\'elle-même. Pour changer de pays : se '
+          'déconnecter.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -87,11 +89,6 @@ class _RenaultKeysCardState extends ConsumerState<RenaultKeysCard> {
             settings?.fetchedAt != null
                 ? 'Clés récupérées depuis renault-api ${formatDayTime(settings!.fetchedAt!)}.'
                 : 'Clés récupérées depuis renault-api à la connexion.',
-            style: hintStyle,
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            'Si Renault les change, l\'app récupère les nouvelles d\'elle-même. Pour changer de pays : se déconnecter.',
             style: hintStyle,
           ),
           const SizedBox(height: 8),

@@ -21,6 +21,7 @@ class DedicatedProgramCard extends ConsumerWidget {
     return DashboardCard(
       title: 'Programme dédié',
       icon: Icons.schedule_outlined,
+      help: 'Le programme que l\'app pourra modifier (heure « prête à »). Les autres ne seront jamais touchés.',
       child: asyncSchedule.when(
         loading: () => const SizedBox(height: 60, child: Center(child: CircularProgressIndicator())),
         error: (error, _) => Text('Erreur : $error', style: const TextStyle(color: AppColors.error)),
@@ -31,11 +32,6 @@ class DedicatedProgramCard extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Le programme que l\'app pourra modifier (heure "prête à"). Les autres ne seront jamais touchés.',
-                style: hintStyle,
-              ),
-              const SizedBox(height: 4),
               RadioGroup<int>(
                 groupValue: config.dedicatedProgramIndex,
                 onChanged: (index) {
