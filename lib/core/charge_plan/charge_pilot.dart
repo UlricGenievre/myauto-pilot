@@ -46,7 +46,7 @@ enum PilotWake {
   /// Rappel du soir.
   evening(3),
 
-  /// Fin d'une charge immediate jusqu'au minimum : renvoi de la plage
+  /// Fin (ou arret demande) d'une charge immediate : renvoi de la plage
   /// qu'elle a remplacee.
   boostEnd(4);
 
@@ -98,22 +98,37 @@ class ChargePilot {
     var state = await store.loadState();
     final vin = config.vehicleVin;
 
-    // Pilotage coupe, ou modele sur lequel l'app ne doit pas ecrire.
-    if (!config.enabled || vin == null || !config.vehicleSupport.canWrite) {
-      for (final wake in PilotWake.values) {
-        await platform.cancelWake(wake);
-      }
+    // Modele sur lequel l'app ne doit pas ecrire, ou pilotage coupe. Une
+    // charge immediate demandee depuis l'app ne depend pas du pilotage : elle
+    // va a son terme, puis les reglages d'avant sont remis.
+    final writable = vin != null && config.vehicleSupport.canWrite;
+    if (!config.enabled || !writable) {
+      await platform.cancelWake(PilotWake.next);
+      await platform.cancelWake(PilotWake.evening);
+      if (state.manualChargeTarget == null || !writable) await platform.cancelWake(PilotWake.execute);
       await platform.dismissConfirmation();
       await platform.dismissMinimumProposal();
-      await store.saveState(state.copyWith(
+      state = state.copyWith(
         clearPending: true,
         clearConfirmed: true,
         clearNextWake: true,
-        clearBoost: true,
         boostProposed: false,
         boostConfirmed: false,
         boostDismissed: false,
-      ));
+        clearManualChargeTarget: !writable,
+      );
+      final now = _clock();
+      if (writable && state.boost != null) {
+        if (!state.boost!.activeAt(now)) {
+          state = await _finishImmediate(config, state, null, await _safeGateway(), now);
+        } else {
+          await platform.scheduleWake(PilotWake.boostEnd, state.boost!.end);
+        }
+      } else {
+        await platform.cancelWake(PilotWake.boostEnd);
+        state = state.copyWith(clearBoost: true);
+      }
+      await store.saveState(state);
       return;
     }
 
@@ -124,21 +139,9 @@ class ChargePilot {
     final planner = ChargePlanner(config);
     final command = planner.commandInForce(now, socPercent: soc);
 
-    // Charge immediate terminee : remettre dans la voiture la plage qu'elle
-    // a remplacee, sans confirmation (le telephone peut etre en mode nuit).
-    // Celle en vigueur si c'est la meme, sinon celle d'avant telle quelle.
     final finished = state.boost;
     if (finished != null && !finished.activeAt(now)) {
-      state = state.copyWith(clearBoost: true);
-      await platform.cancelWake(PilotWake.boostEnd);
-      final displaced = finished.displaced;
-      if (!finished.merged && displaced != null) {
-        final restore =
-            command != null && displaced.covers(command, config.fingerprint) ? command : displaced.toCommand(now);
-        if (restore != null) {
-          state = await _send(config, state, restore, vehicle, title: 'Plage d\'heures creuses renvoyée');
-        }
-      }
+      state = await _finishImmediate(config, state, command, vehicle, now);
     }
     final boost = state.boost;
 
@@ -183,16 +186,64 @@ class ChargePilot {
     await store.saveState(state);
   }
 
-  // --- Charge minimale -----------------------------------------------------------
+  // --- Charge immediate ---------------------------------------------------------
+
+  /// Charge immediate terminee (ou arretee) : remettre dans la voiture ce
+  /// qu'elle a remplace, sans confirmation (le telephone peut etre en mode
+  /// nuit). Pilotage actif : la plage en vigueur si c'est la meme, sinon
+  /// celle d'avant telle quelle ; rien si la plage en vigueur n'a pas encore
+  /// ete envoyee (elle part juste apres). Pilotage coupe, ou rien a
+  /// renvoyer : les reglages de la voiture d'avant la charge.
+  Future<PilotState> _finishImmediate(
+    ChargePlanConfig config,
+    PilotState state,
+    ChargeCommand? command,
+    PilotVehicleGateway? vehicle,
+    DateTime now,
+  ) async {
+    final finished = state.boost!;
+    // Un autre envoi est en cours : reessayer un peu plus tard plutot que
+    // perdre ce qu'il faut remettre.
+    final since = (await store.loadState()).sendingSince;
+    if (since != null && _clock().difference(since) < sendLockTimeout) {
+      await platform.scheduleWake(PilotWake.boostEnd, _clock().add(const Duration(minutes: 1)));
+      return state;
+    }
+    state = state.copyWith(clearBoost: true);
+    await platform.cancelWake(PilotWake.boostEnd);
+    if (finished.merged) return state;
+    final displaced = finished.displaced;
+    if (config.enabled && displaced != null) {
+      final restore =
+          command != null && displaced.covers(command, config.fingerprint) ? command : displaced.toCommand(now);
+      if (restore != null) {
+        return _send(config, state, restore, vehicle, title: 'Plage d\'heures creuses renvoyée');
+      }
+    }
+    if (config.enabled && command != null) return state;
+    final previous = finished.previous;
+    if (previous == null) return state;
+    return _locked(state, () => _restorePrevious(config, state, previous, vehicle));
+  }
+
+  /// Charge immediate jusqu'a [targetPercent] a lancer maintenant, ou null :
+  /// batterie inconnue ou deja a ce niveau, voiture debranchee, capacite ou
+  /// puissance inconnue, pas de programme dedie. Prolongee jusqu'a la plage
+  /// d'heures creuses qu'elle atteint seulement si le pilotage est actif.
+  ImmediateChargePlan? _immediateOffer(ChargePlanConfig config, BatteryStatus? battery, DateTime now, int targetPercent) {
+    final soc = battery?.batteryLevel;
+    if (soc == null || battery!.plugState != PlugState.plugged || config.dedicatedProgramIndex == null) return null;
+    return ChargePlanner(config)
+        .immediateCharge(now, socPercent: soc, targetPercent: targetPercent, mergeWithWindows: config.enabled);
+  }
 
   /// Charge immediate jusqu'au minimum a proposer maintenant, ou null :
-  /// batterie inconnue ou au-dessus, voiture debranchee ou deja en charge,
-  /// charge immediate deja en cours.
-  MinimumBoostPlan? _minimumOffer(ChargePlanConfig config, PilotState state, BatteryStatus? battery, DateTime now) {
-    final soc = battery?.batteryLevel;
-    if (soc == null || battery!.plugState != PlugState.plugged || battery.isCharging == true) return null;
-    if (config.dedicatedProgramIndex == null || (state.boost?.activeAt(now) ?? false)) return null;
-    return ChargePlanner(config).minimumBoost(now, socPercent: soc);
+  /// pas de minimum, voiture deja en charge ou charge immediate deja en
+  /// cours (et cf. [_immediateOffer]).
+  ImmediateChargePlan? _minimumOffer(ChargePlanConfig config, PilotState state, BatteryStatus? battery, DateTime now) {
+    final min = config.minChargePercent;
+    if (min == null || battery?.isCharging == true || (state.boost?.activeAt(now) ?? false)) return null;
+    return _immediateOffer(config, battery, now, min);
   }
 
   Future<PilotState> _updateMinimumProposal(
@@ -223,6 +274,29 @@ class ChargePilot {
     return state;
   }
 
+  /// Bouton "Charger maintenant" de l'app : charge immediate jusqu'a
+  /// [targetPercent], pilotage actif ou non, sans confirmation (l'appui en
+  /// est une). Comme [confirm], l'envoi est fait par le reveil "execution".
+  Future<void> startImmediateCharge(int targetPercent) async {
+    final state = await store.loadState();
+    await store.saveState(state.copyWith(manualChargeTarget: targetPercent));
+    await platform.scheduleWake(PilotWake.execute, _clock().add(const Duration(seconds: 2)));
+  }
+
+  /// Bouton "Arreter" : la charge immediate en cours se termine maintenant,
+  /// et ce qu'elle a remplace est renvoye par le reveil de fin. Prolongee
+  /// jusqu'a la fin d'une plage d'heures creuses, c'est cette plage qui est
+  /// renvoyee.
+  Future<void> stopImmediateCharge() async {
+    final state = await store.loadState();
+    final boost = state.boost;
+    final now = _clock();
+    if (boost == null || !boost.activeAt(now)) return;
+    final stopped = boost.merged ? boost.copyWith(end: now, displaced: state.sent, merged: false) : boost.copyWith(end: now);
+    await store.saveState(state.copyWith(boost: stopped, clearManualChargeTarget: true));
+    await platform.scheduleWake(PilotWake.boostEnd, now.add(const Duration(seconds: 2)));
+  }
+
   /// Action "Declencher" (notification ou app) : comme [confirm], l'envoi
   /// est fait par le reveil "execution".
   Future<void> confirmMinimum() async {
@@ -239,15 +313,17 @@ class ChargePilot {
     await platform.dismissMinimumProposal();
   }
 
-  /// Reveil "execution" : envoie la charge immediate acceptee, recalculee
-  /// avec le niveau du moment.
-  Future<void> executeMinimum() async {
+  /// Reveil "execution" : envoie la charge immediate demandee depuis l'app
+  /// ou acceptee (minimum), recalculee avec le niveau du moment.
+  Future<void> executeImmediate() async {
     final config = await store.load();
     var state = await store.loadState();
     final vin = config.vehicleVin;
-    if (!state.boostConfirmed) return;
-    if (!config.enabled || vin == null || !config.vehicleSupport.canWrite) {
-      await store.saveState(state.copyWith(boostConfirmed: false));
+    final manualTarget = state.manualChargeTarget;
+    if (manualTarget == null && !state.boostConfirmed) return;
+    final minimum = manualTarget == null ? config.minChargePercent : null;
+    if (vin == null || !config.vehicleSupport.canWrite || (manualTarget == null && (!config.enabled || minimum == null))) {
+      await store.saveState(state.copyWith(boostConfirmed: false, clearManualChargeTarget: true));
       return;
     }
     final since = state.sendingSince;
@@ -256,17 +332,33 @@ class ChargePilot {
       return;
     }
 
-    state = state.copyWith(boostConfirmed: false);
+    state = state.copyWith(boostConfirmed: false, clearManualChargeTarget: true);
     final vehicle = await _safeGateway();
     final battery = vehicle == null ? null : await _safeBattery(vehicle, vin);
     final now = _clock();
-    final plan = _minimumOffer(config, state, battery, now);
-    if (plan == null) {
-      state = _withResult(
-          state,
-          'Charge immédiate non lancée : batterie au-dessus du minimum, voiture débranchée, déjà en charge '
-          'ou niveau illisible.',
-          ok: false);
+    final target = manualTarget ?? minimum!;
+    final plan = manualTarget != null
+        ? _immediateOffer(config, battery, now, manualTarget)
+        : _minimumOffer(config, state, battery, now);
+    // Reglages a remettre a la fin : ceux d'avant une charge immediate deja
+    // en cours (qu'elle remplace), sinon ceux lus maintenant.
+    final active = state.boost != null && state.boost!.activeAt(now) ? state.boost : null;
+    CarSettingsSnapshot? previous = active?.previous;
+    if (plan != null && previous == null && vehicle != null) {
+      try {
+        previous = CarSettingsSnapshot.of(await vehicle.fetchSchedule(vin), config.dedicatedProgramIndex!);
+      } catch (_) {
+        previous = null;
+      }
+    }
+    if (plan == null || (previous == null && !config.enabled)) {
+      final reason = plan == null
+          ? manualTarget != null
+              ? 'voiture débranchée, batterie déjà à $target % ou plus, niveau illisible, capacité ou puissance '
+                  'de charge inconnue, ou pas de programme dédié.'
+              : 'batterie au-dessus du minimum, voiture débranchée, déjà en charge ou niveau illisible.'
+          : 'réglages actuels de la voiture illisibles (ils n\'auraient pas pu être remis ensuite).';
+      state = _withResult(state, 'Charge immédiate non lancée : $reason', ok: false);
       await platform.showResult('Charge immédiate non lancée', state.lastResult!);
       await store.saveState(state);
       return;
@@ -274,23 +366,39 @@ class ChargePilot {
 
     final command = plan.command;
     final merged = plan.mergedWith;
-    final displaced = state.sent;
-    final body = 'Charge jusqu\'à ${_hm(command.windowEnd)} pour atteindre ${config.minChargePercent} %.'
-        '${merged != null ? ' Prolongée jusqu\'à la fin de la plage d\'heures creuses.' : displaced != null ? ' La plage d\'heures creuses sera renvoyée à ${_hm(command.windowEnd)}.' : ''}';
+    // Plage a renvoyer a la fin (pilotage actif) : celle que la voiture avait
+    // avant la charge immediate en cours, s'il y en a une.
+    var displaced = active != null && !active.merged ? active.displaced : state.sent;
+    if (!config.enabled || (displaced?.id.startsWith(ChargePlanner.immediateIdPrefix) ?? false)) displaced = null;
+    final end = _hm(command.windowEnd);
+    final body = 'Charge jusqu\'à $end pour atteindre $target %.'
+        '${merged != null ? ' Prolongée jusqu\'à la fin de la plage d\'heures creuses.' : displaced != null ? ' La plage d\'heures creuses sera renvoyée à $end.' : !config.enabled ? ' Les réglages de charge d\'avant seront remis à $end.' : ''}';
     state = await _send(config, state, command, vehicle, title: 'Charge immédiate lancée', body: body);
     if (state.lastResultOk == true && state.sent?.id == command.id) {
       state = state.copyWith(
-        boost: MinimumBoost(sentAt: now, end: command.windowEnd, displaced: merged == null ? displaced : null, merged: merged != null),
+        boost: ImmediateCharge(
+          sentAt: now,
+          end: command.windowEnd,
+          targetPercent: target,
+          manual: manualTarget != null,
+          displaced: merged == null ? displaced : null,
+          merged: merged != null,
+          previous: previous,
+        ),
         // Plage atteinte par la charge immediate : deja dans la voiture.
         sent: merged != null ? CommandMark.of(merged, config.fingerprint) : null,
       );
-      if (merged == null) await platform.scheduleWake(PilotWake.boostEnd, command.windowEnd);
+      if (merged == null) {
+        await platform.scheduleWake(PilotWake.boostEnd, command.windowEnd);
+      } else {
+        await platform.cancelWake(PilotWake.boostEnd);
+      }
     }
     await store.saveState(state);
   }
 
   /// Texte de la proposition de charge immediate.
-  String describeMinimum(ChargePlanConfig config, PilotState state, MinimumBoostPlan plan, int soc) {
+  String describeMinimum(ChargePlanConfig config, PilotState state, ImmediateChargePlan plan, int soc) {
     final end = _hm(plan.command.windowEnd);
     return [
       'Batterie à $soc %, voiture branchée. Déclencher la charge pour atteindre le seuil minimal de '
@@ -411,7 +519,11 @@ class ChargePilot {
     PilotVehicleGateway? vehicle, {
     String title = 'Plage envoyée',
     String? body,
-  }) async {
+  }) =>
+      _locked(state, () => _sendUnlocked(config, state, command, vehicle, title: title, body: body));
+
+  /// Execute [write] sous le verrou d'envoi (cf. [_send]).
+  Future<PilotState> _locked(PilotState state, Future<PilotState> Function() write) async {
     // Relecture juste avant de verrouiller : l'etat [state] a pu etre lu
     // avant qu'un autre isolate ne pose son verrou.
     final fresh = await store.loadState();
@@ -421,9 +533,63 @@ class ChargePilot {
       return state.copyWith(sendingSince: since);
     }
     await store.saveState(fresh.copyWith(sendingSince: _clock()));
-    final result = await _sendUnlocked(config, state, command, vehicle, title: title, body: body);
+    final result = await write();
     return result.copyWith(clearSending: true);
   }
+
+  /// Poste [settings] puis relit jusqu'a voir l'ecriture appliquee ; null
+  /// si elle ne l'est pas apres [pollTimeout].
+  Future<VehicleSchedule?> _writeAndWait(
+    PilotVehicleGateway vehicle,
+    String vin,
+    VehicleSchedule current,
+    Map<String, dynamic> settings,
+  ) async {
+    await vehicle.updateSchedule(vin, settings);
+    final deadline = _clock().add(pollTimeout);
+    var reread = await vehicle.fetchSchedule(vin);
+    while (reread.lastUpdate == current.lastUpdate && _clock().isBefore(deadline)) {
+      await Future<void>.delayed(pollInterval);
+      reread = await vehicle.fetchSchedule(vin);
+    }
+    return reread.lastUpdate != current.lastUpdate ? reread : null;
+  }
+
+  /// Remet les reglages de la voiture d'avant une charge immediate.
+  Future<PilotState> _restorePrevious(
+    ChargePlanConfig config,
+    PilotState state,
+    CarSettingsSnapshot previous,
+    PilotVehicleGateway? vehicle,
+  ) async {
+    const failTitle = 'Réglages de charge non remis';
+    Future<PilotState> fail(String message) async {
+      await platform.showResult(failTitle, message);
+      return _withResult(state, message, ok: false);
+    }
+
+    if (vehicle == null) return fail('Session expirée : ouvrez l\'app pour vous reconnecter.');
+    try {
+      final vin = config.vehicleVin!;
+      final current = await vehicle.fetchSchedule(vin);
+      final reread = await _writeAndWait(vehicle, vin, current, previous.applyTo(current));
+      if (reread == null ||
+          reread.chargeWindowStart != previous.chargeTimeStart ||
+          reread.chargeWindowDurationMinutes != previous.durationMinutes) {
+        return await fail('Envoyés, mais la voiture n\'a pas confirmé les réglages d\'avant la charge immédiate après '
+            '${pollTimeout.inSeconds} s. Vérifiez dans l\'app.');
+      }
+      final message = 'Charge immédiate terminée : réglages d\'avant remis (plage ${previous.chargeTimeStart}, '
+          '${_duration(previous.durationMinutes)}).';
+      await platform.showResult('Charge immédiate terminée', message);
+      return _withResult(state, message, ok: true);
+    } catch (error) {
+      return fail('Échec de la remise des réglages d\'avant la charge immédiate : $error');
+    }
+  }
+
+  static String _duration(int minutes) =>
+      minutes % 60 == 0 ? '${minutes ~/ 60} h' : '${minutes ~/ 60} h ${(minutes % 60).toString().padLeft(2, '0')}';
 
   Future<PilotState> _sendUnlocked(
     ChargePlanConfig config,
@@ -461,19 +627,10 @@ class ChargePilot {
         // demandee pour un objectif ne doit pas rester pour le suivant.
         programKind: command.climate ? ProgramKind.chargeAndPreconditioning : ProgramKind.charge,
       );
-      await vehicle.updateSchedule(vin, settings);
-
-      final deadline = _clock().add(pollTimeout);
-      var reread = await vehicle.fetchSchedule(vin);
-      while (reread.lastUpdate == current.lastUpdate && _clock().isBefore(deadline)) {
-        await Future<void>.delayed(pollInterval);
-        reread = await vehicle.fetchSchedule(vin);
-      }
-
-      final applied = reread.lastUpdate != current.lastUpdate &&
-          reread.chargeWindowStart == command.chargeTimeStart.format() &&
-          reread.chargeWindowDurationMinutes == command.durationMinutes;
-      if (!applied) {
+      final reread = await _writeAndWait(vehicle, vin, current, settings);
+      if (reread == null ||
+          reread.chargeWindowStart != command.chargeTimeStart.format() ||
+          reread.chargeWindowDurationMinutes != command.durationMinutes) {
         return await _fail(state, command, 'Envoyé, mais la voiture n\'a pas confirmé la nouvelle plage après '
             '${pollTimeout.inSeconds} s. Vérifiez dans l\'app.');
       }
@@ -488,7 +645,7 @@ class ChargePilot {
       await platform.showResult(title, message);
       var next =
           state.copyWith(sent: CommandMark.of(command, config.fingerprint), clearPending: true, clearConfirmed: true);
-      if (command.kind != ChargeCommandKind.minimumBoost && next.boost != null) {
+      if (command.kind != ChargeCommandKind.immediateCharge && next.boost != null) {
         // La plage envoyee remplace la charge immediate en cours.
         next = next.copyWith(clearBoost: true);
         await platform.cancelWake(PilotWake.boostEnd);

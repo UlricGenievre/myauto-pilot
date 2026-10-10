@@ -6,15 +6,16 @@ import '../auth/auth_controller.dart';
 import '../schedule/schedule_providers.dart';
 import '../schedule/vehicle_schedule_cards.dart';
 import 'cards/auto_pilot_card.dart';
+import 'cards/immediate_charge_card.dart';
 import 'cards/one_off_card.dart';
 import 'cards/preview_card.dart';
 import 'cards/vehicle_support_card.dart';
 import 'charge_plan_providers.dart';
 
 /// Onglet "Pilotage" : l'usage quotidien (ce qui va etre envoye, etat du
-/// pilotage automatique, objectif exceptionnel) et ce que la voiture a
-/// effectivement recu. Le parametrage de fond est dans Reglages (roue
-/// dentee).
+/// pilotage automatique, charge immediate, objectif exceptionnel) et ce que
+/// la voiture a effectivement recu. Le parametrage de fond est dans
+/// Reglages (roue dentee).
 class PilotScreen extends ConsumerWidget {
   const PilotScreen({super.key});
 
@@ -41,6 +42,8 @@ class PilotScreen extends ConsumerWidget {
               PreviewCard(config: config),
               const SizedBox(height: 16),
               AutoPilotCard(config: config, controller: controller),
+              const SizedBox(height: 16),
+              ImmediateChargeCard(config: config, controller: controller),
               const SizedBox(height: 16),
               OneOffCard(config: config, controller: controller),
               const SizedBox(height: 28),

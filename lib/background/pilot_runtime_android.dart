@@ -25,7 +25,7 @@ final _notifications = FlutterLocalNotificationsPlugin();
 const _channel = AndroidNotificationChannel(
   'charge_pilot',
   'Pilotage de charge',
-  description: 'Plages de charge à envoyer, charge immédiate jusqu\'au minimum, résultats des envois, rappel du soir.',
+  description: 'Plages de charge à envoyer, charge immédiate, résultats des envois, rappel du soir.',
   importance: Importance.high,
 );
 
@@ -77,6 +77,17 @@ Future<void> confirmMinimumCharge() async {
 Future<void> ignoreMinimumCharge() async {
   if (!pilotSupported) return;
   await _createPilot().ignoreMinimum();
+}
+
+/// Boutons "Charger maintenant"/"Arreter" de la charge immediate.
+Future<void> startImmediateCharge(int targetPercent) async {
+  if (!pilotSupported) return;
+  await _createPilot().startImmediateCharge(targetPercent);
+}
+
+Future<void> stopImmediateCharge() async {
+  if (!pilotSupported) return;
+  await _createPilot().stopImmediateCharge();
 }
 
 /// Autorisation d'afficher des notifications (Android 13+).
@@ -140,7 +151,7 @@ Future<void> pilotAlarmCallback(int alarmId) async {
   await _initBackgroundIsolate();
   final pilot = _createPilot();
   if (alarmId == PilotWake.execute.alarmId) {
-    await pilot.executeMinimum();
+    await pilot.executeImmediate();
     await pilot.executeConfirmed();
     await pilot.tick();
   } else if (alarmId == PilotWake.evening.alarmId) {

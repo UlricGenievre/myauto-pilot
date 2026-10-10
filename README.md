@@ -34,6 +34,9 @@ voiture, avant chaque plage, la plage de charge qui convient.
 - **Seuils de charge** : charge maximale (les plages sont raccourcies pour
   s'arrêter vers ce niveau, sauf objectif plus haut) et charge minimale
   (batterie en dessous, voiture branchée : charge immédiate proposée).
+- **Charge immédiate** jusqu'au niveau choisi, d'un appui, que le
+  pilotage automatique soit actif ou non. À la fin (ou à l'arrêt), la
+  voiture retrouve sa plage d'heures creuses ou ses réglages d'avant.
 - **Envoi automatique** de la plage à la voiture avant son début (délai
   réglable), à l'heure exacte, même application fermée.
 - **Mode sécurisé** (activé par défaut) : chaque envoi vous est proposé par

@@ -314,7 +314,7 @@ void main() {
     test('charge immediate deja commencee, assez longue pour le minimum', () {
       final plan = ChargePlanner(config().copyWith(minChargePercent: 35)).minimumBoost(at(22, 20), socPercent: 18)!;
       expect(plan.mergedWith, isNull);
-      expect(plan.command.kind, ChargeCommandKind.minimumBoost);
+      expect(plan.command.kind, ChargeCommandKind.immediateCharge);
       expect(plan.command.windowStart, at(22, 19, 55));
       expect(plan.command.windowEnd, at(22, 21, 15));
       expect(plan.command.defaultReadyAt, isTrue);
@@ -340,6 +340,28 @@ void main() {
       expect(ChargePlanner(config()).minimumBoost(at(22, 20), socPercent: 10), isNull);
       expect(ChargePlanner(config(capacity: null).copyWith(minChargePercent: 35)).minimumBoost(at(22, 20), socPercent: 10),
           isNull);
+    });
+  });
+
+  group('Charge immediate a la demande', () {
+    // 52 kWh, 7,4 kW : 50 % -> 80 % = 127 min -> 130 min.
+    test('jusqu\'a la cible demandee, au-dessus de la charge maximale', () {
+      final plan = ChargePlanner(config().copyWith(maxChargePercent: 60))
+          .immediateCharge(at(22, 20), socPercent: 50, targetPercent: 80)!;
+      expect(plan.mergedWith, isNull);
+      expect(plan.command.kind, ChargeCommandKind.immediateCharge);
+      expect(plan.command.windowStart, at(22, 19, 55));
+      expect(plan.command.windowEnd, at(22, 22, 10));
+    });
+
+    test('pilotage coupe : jamais prolongee jusqu\'a une plage de l\'app', () {
+      final plan = ChargePlanner(config()).immediateCharge(at(22, 12), socPercent: 18, targetPercent: 35, mergeWithWindows: false)!;
+      expect(plan.mergedWith, isNull);
+      expect(plan.command.windowEnd, at(22, 13, 15));
+    });
+
+    test('rien si la cible est deja atteinte', () {
+      expect(ChargePlanner(config()).immediateCharge(at(22, 20), socPercent: 80, targetPercent: 80), isNull);
     });
   });
 }

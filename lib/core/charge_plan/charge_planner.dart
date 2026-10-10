@@ -55,14 +55,14 @@ enum ChargeCommandKind {
   /// Journee HC complete, vers 10:00 : plage 00:00 -> 00:00 (1440 min).
   allDayFull,
 
-  /// Charge immediate jusqu'a la charge minimale, a la demande.
-  minimumBoost,
+  /// Charge immediate (jusqu'a la charge minimale ou a la cible demandee).
+  immediateCharge,
 }
 
-/// Charge immediate jusqu'a la charge minimale ([command]), eventuellement
-/// prolongee jusqu'a la fin de la plage [mergedWith] qu'elle atteint.
-class MinimumBoostPlan {
-  const MinimumBoostPlan({required this.command, this.mergedWith});
+/// Charge immediate ([command]), eventuellement prolongee jusqu'a la fin de
+/// la plage [mergedWith] qu'elle atteint.
+class ImmediateChargePlan {
+  const ImmediateChargePlan({required this.command, this.mergedWith});
 
   final ChargeCommand command;
   final ChargeCommand? mergedWith;
@@ -337,26 +337,42 @@ class ChargePlanner {
     return null;
   }
 
-  /// Charge immediate de [socPercent] jusqu'a la charge minimale : plage
-  /// deja commencee (la voiture charge des reception), assez longue pour
-  /// l'atteindre. Si elle atteint le debut de la plage suivante, elle est
-  /// prolongee jusqu'a sa fin, sans depasser la charge maximale (sauf
-  /// objectif). Null sans charge minimale, au-dessus, ou sans capacite/
-  /// puissance.
-  MinimumBoostPlan? minimumBoost(DateTime now, {required int socPercent}) {
+  /// Prefixe des identifiants de charge immediate.
+  static const immediateIdPrefix = 'boost-';
+
+  /// Charge immediate de [socPercent] jusqu'a la charge minimale (cf.
+  /// [immediateCharge]). Null sans charge minimale.
+  ImmediateChargePlan? minimumBoost(DateTime now, {required int socPercent}) {
     final min = config.minChargePercent;
-    if (min == null || socPercent >= min) return null;
-    final needed = _neededMinutes(min, socPercent);
+    return min == null ? null : immediateCharge(now, socPercent: socPercent, targetPercent: min);
+  }
+
+  /// Charge immediate de [socPercent] jusqu'a [targetPercent] : plage deja
+  /// commencee (la voiture charge des reception), assez longue pour
+  /// l'atteindre. Si [mergeWithWindows] et qu'elle atteint le debut de la
+  /// plage suivante, elle est prolongee jusqu'a sa fin, sans depasser la
+  /// charge maximale (sauf objectif). Null si [targetPercent] est deja
+  /// atteint, ou sans capacite/puissance.
+  ImmediateChargePlan? immediateCharge(
+    DateTime now, {
+    required int socPercent,
+    required int targetPercent,
+    bool mergeWithWindows = true,
+  }) {
+    if (socPercent >= targetPercent) return null;
+    final needed = _neededMinutes(targetPercent, socPercent);
     if (needed == null) return null;
     final from = _floorTo(now, 1);
     final start = from.subtract(maxReachedWindow);
     var end = from.add(Duration(minutes: _roundUp(needed, _maxRoundingMinutes)));
 
     ChargeCommand? merged;
-    for (final command in commands(now, socPercent: socPercent)) {
-      if (!command.windowStart.isAfter(now)) continue;
-      if (!end.isBefore(command.windowStart)) merged = command;
-      break;
+    if (mergeWithWindows) {
+      for (final command in commands(now, socPercent: socPercent)) {
+        if (!command.windowStart.isAfter(now)) continue;
+        if (!end.isBefore(command.windowStart)) merged = command;
+        break;
+      }
     }
     if (merged != null) {
       var mergedEnd = merged.windowEnd;
@@ -371,11 +387,11 @@ class ChargePlanner {
 
     var duration = end.difference(start).inMinutes;
     if (duration > 1440) duration = 1440;
-    return MinimumBoostPlan(
+    return ImmediateChargePlan(
       mergedWith: merged,
       command: ChargeCommand(
-        id: 'boost-${_key(now)}',
-        kind: ChargeCommandKind.minimumBoost,
+        id: '$immediateIdPrefix${_key(now)}',
+        kind: ChargeCommandKind.immediateCharge,
         pushAt: now,
         windowStart: start,
         durationMinutes: duration,

@@ -220,8 +220,6 @@ class _PilotStatus extends ConsumerWidget {
     final state = ref.watch(pilotStateProvider).value;
     if (state == null) return const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()));
     final pending = state.pendingId;
-    final boost = state.boost;
-    final boostActive = boost != null && boost.activeAt(DateTime.now());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,14 +228,6 @@ class _PilotStatus extends ConsumerWidget {
           state.nextWakeAt != null ? 'Prochain envoi : ${formatDayTime(state.nextWakeAt!)}' : 'Aucun envoi programmé.',
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        if (boostActive) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Charge immédiate jusqu\'au minimum en cours, jusqu\'à ${formatTimeOfDay(boost.end)}.'
-            '${boost.merged ? ' Prolongée jusqu\'à la fin de la plage d\'heures creuses.' : boost.displaced != null ? ' La plage d\'heures creuses sera renvoyée ensuite.' : ''}',
-            style: hintStyle.copyWith(color: AppColors.accent),
-          ),
-        ],
         if (state.boostProposed) ...[
           const SizedBox(height: 8),
           Text('Batterie sous le minimum, voiture branchée (voir la notification).',

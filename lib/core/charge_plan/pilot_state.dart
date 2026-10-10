@@ -1,3 +1,4 @@
+import '../models/vehicle_schedule.dart';
 import 'charge_planner.dart';
 
 /// Trace d'une commande envoyee, ignoree ou proposee : de quelle plage il
@@ -97,15 +98,111 @@ class CommandMark {
   }
 }
 
-/// Charge immediate jusqu'a la charge minimale, envoyee a la voiture a la
-/// place de la plage en vigueur.
-class MinimumBoost {
-  const MinimumBoost({required this.sentAt, required this.end, this.displaced, this.merged = false});
+/// Reglages de la voiture remplaces par une charge immediate : plage et
+/// programme dedie, remis a sa fin quand le pilotage est coupe (sinon, la
+/// plage de la charge immediate se repeterait chaque jour).
+class CarSettingsSnapshot {
+  const CarSettingsSnapshot({
+    required this.chargeTimeStart,
+    required this.durationMinutes,
+    required this.programIndex,
+    this.departureTime,
+    this.programActive,
+    this.programDays,
+    this.programKind = ProgramKind.unknown,
+  });
+
+  /// Null si la voiture n'a pas de plage lisible, ou sans [programIndex]
+  /// dans [schedule].
+  static CarSettingsSnapshot? of(VehicleSchedule schedule, int programIndex) {
+    final start = schedule.chargeWindowStart;
+    final duration = schedule.chargeWindowDurationMinutes;
+    if (start == null || duration == null || programIndex < 0 || programIndex >= schedule.programs.length) return null;
+    final program = schedule.programs[programIndex];
+    return CarSettingsSnapshot(
+      chargeTimeStart: start,
+      durationMinutes: duration,
+      programIndex: programIndex,
+      departureTime: program.departureTime,
+      programActive: program.isActive,
+      programDays: program.activeDays,
+      programKind: program.kind,
+    );
+  }
+
+  /// "HH:MM", tel que lu dans `ev/settings`.
+  final String chargeTimeStart;
+  final int durationMinutes;
+  final int programIndex;
+  final String? departureTime;
+  final bool? programActive;
+  final Set<int>? programDays;
+  final ProgramKind programKind;
+
+  /// [current] avec ces reglages remis, pret a etre poste.
+  Map<String, dynamic> applyTo(VehicleSchedule current) => current.toUpdatedJson(
+        chargeTimeStart: chargeTimeStart,
+        chargeDurationMinutes: durationMinutes,
+        programIndex: programIndex,
+        departureTime: departureTime,
+        programActive: programActive,
+        programDays: programDays,
+        programKind: programKind,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'chargeTimeStart': chargeTimeStart,
+        'durationMinutes': durationMinutes,
+        'programIndex': programIndex,
+        'departureTime': departureTime,
+        'programActive': programActive,
+        'programDays': programDays?.toList(),
+        'programKind': programKind.name,
+      };
+
+  static CarSettingsSnapshot? fromJson(Object? json) {
+    if (json is! Map<String, dynamic>) return null;
+    final start = json['chargeTimeStart'] as String?;
+    final duration = json['durationMinutes'] as int?;
+    final index = json['programIndex'] as int?;
+    if (start == null || duration == null || index == null) return null;
+    final kind = json['programKind'] as String?;
+    return CarSettingsSnapshot(
+      chargeTimeStart: start,
+      durationMinutes: duration,
+      programIndex: index,
+      departureTime: json['departureTime'] as String?,
+      programActive: json['programActive'] as bool?,
+      programDays: (json['programDays'] as List<dynamic>?)?.cast<int>().toSet(),
+      programKind: ProgramKind.values.asNameMap()[kind] ?? ProgramKind.unknown,
+    );
+  }
+}
+
+/// Charge immediate envoyee a la voiture a la place de la plage en vigueur :
+/// jusqu'a la charge minimale (proposee par le pilotage) ou jusqu'a la cible
+/// demandee depuis l'app ([manual]).
+class ImmediateCharge {
+  const ImmediateCharge({
+    required this.sentAt,
+    required this.end,
+    this.targetPercent,
+    this.manual = false,
+    this.displaced,
+    this.merged = false,
+    this.previous,
+  });
 
   final DateTime sentAt;
 
   /// Fin de la charge (fin de la plage d'heures creuses si [merged]).
   final DateTime end;
+
+  /// Niveau vise (charge minimale, ou cible demandee).
+  final int? targetPercent;
+
+  /// Demandee depuis l'app, pilotage actif ou non.
+  final bool manual;
 
   /// Commande en place dans la voiture avant la charge immediate, renvoyee
   /// a sa fin (sans confirmation : le telephone peut etre en mode nuit).
@@ -115,25 +212,45 @@ class MinimumBoost {
   /// compte alors comme envoyee : rien a renvoyer a la fin.
   final bool merged;
 
+  /// Reglages de la voiture juste avant : remis a la fin si le pilotage
+  /// est coupe (ou s'il n'a rien a renvoyer).
+  final CarSettingsSnapshot? previous;
+
   bool activeAt(DateTime now) => end.isAfter(now);
+
+  ImmediateCharge copyWith({DateTime? end, CommandMark? displaced, bool? merged}) => ImmediateCharge(
+        sentAt: sentAt,
+        end: end ?? this.end,
+        targetPercent: targetPercent,
+        manual: manual,
+        displaced: displaced ?? this.displaced,
+        merged: merged ?? this.merged,
+        previous: previous,
+      );
 
   Map<String, dynamic> toJson() => {
         'sentAt': sentAt.toIso8601String(),
         'end': end.toIso8601String(),
+        if (targetPercent != null) 'targetPercent': targetPercent,
+        if (manual) 'manual': true,
         'displaced': displaced?.toJson(),
         if (merged) 'merged': true,
+        if (previous != null) 'previous': previous!.toJson(),
       };
 
-  static MinimumBoost? fromJson(Object? json) {
+  static ImmediateCharge? fromJson(Object? json) {
     if (json is! Map<String, dynamic>) return null;
     final sentAt = DateTime.tryParse(json['sentAt'] as String? ?? '');
     final end = DateTime.tryParse(json['end'] as String? ?? '');
     if (sentAt == null || end == null) return null;
-    return MinimumBoost(
+    return ImmediateCharge(
       sentAt: sentAt,
       end: end,
+      targetPercent: json['targetPercent'] as int?,
+      manual: json['manual'] as bool? ?? false,
       displaced: CommandMark.fromJson(json['displaced']),
       merged: json['merged'] as bool? ?? false,
+      previous: CarSettingsSnapshot.fromJson(json['previous']),
     );
   }
 }
@@ -155,6 +272,7 @@ class PilotState {
     this.boostProposed = false,
     this.boostConfirmed = false,
     this.boostDismissed = false,
+    this.manualChargeTarget,
   });
 
   /// Derniere commande envoyee avec succes.
@@ -188,8 +306,8 @@ class PilotState {
   /// l'app et les reveils, cf. `ChargePilot.sendLockTimeout`).
   final DateTime? sendingSince;
 
-  /// Charge immediate jusqu'au minimum envoyee (en cours ou a solder).
-  final MinimumBoost? boost;
+  /// Charge immediate envoyee (en cours ou a solder).
+  final ImmediateCharge? boost;
 
   /// Charge immediate proposee (notification affichee), sans reponse.
   final bool boostProposed;
@@ -200,6 +318,10 @@ class PilotState {
   /// Proposition refusee : plus reproposee avant que la batterie repasse
   /// au-dessus du minimum ou que la voiture soit debranchee.
   final bool boostDismissed;
+
+  /// Charge immediate demandee depuis l'app jusqu'a ce niveau, a envoyer
+  /// par le reveil "execution".
+  final int? manualChargeTarget;
 
   PilotState copyWith({
     CommandMark? sent,
@@ -215,11 +337,13 @@ class PilotState {
     bool clearNextWake = false,
     DateTime? sendingSince,
     bool clearSending = false,
-    MinimumBoost? boost,
+    ImmediateCharge? boost,
     bool clearBoost = false,
     bool? boostProposed,
     bool? boostConfirmed,
     bool? boostDismissed,
+    int? manualChargeTarget,
+    bool clearManualChargeTarget = false,
   }) =>
       PilotState(
         sent: sent ?? this.sent,
@@ -235,6 +359,7 @@ class PilotState {
         boostProposed: boostProposed ?? this.boostProposed,
         boostConfirmed: boostConfirmed ?? this.boostConfirmed,
         boostDismissed: boostDismissed ?? this.boostDismissed,
+        manualChargeTarget: clearManualChargeTarget ? null : (manualChargeTarget ?? this.manualChargeTarget),
       );
 
   Map<String, dynamic> toJson() => {
@@ -251,6 +376,7 @@ class PilotState {
         if (boostProposed) 'boostProposed': true,
         if (boostConfirmed) 'boostConfirmed': true,
         if (boostDismissed) 'boostDismissed': true,
+        if (manualChargeTarget != null) 'manualChargeTarget': manualChargeTarget,
       };
 
   factory PilotState.fromJson(Map<String, dynamic> json) => PilotState(
@@ -263,9 +389,10 @@ class PilotState {
         lastResultAt: DateTime.tryParse(json['lastResultAt'] as String? ?? ''),
         nextWakeAt: DateTime.tryParse(json['nextWakeAt'] as String? ?? ''),
         sendingSince: DateTime.tryParse(json['sendingSince'] as String? ?? ''),
-        boost: MinimumBoost.fromJson(json['boost']),
+        boost: ImmediateCharge.fromJson(json['boost']),
         boostProposed: json['boostProposed'] as bool? ?? false,
         boostConfirmed: json['boostConfirmed'] as bool? ?? false,
         boostDismissed: json['boostDismissed'] as bool? ?? false,
+        manualChargeTarget: json['manualChargeTarget'] as int?,
       );
 }

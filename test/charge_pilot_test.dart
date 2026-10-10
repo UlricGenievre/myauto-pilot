@@ -619,7 +619,7 @@ void main() {
 
       await pilot(store, platform, vehicle, at(22, 21, 30)).confirmMinimum();
       expect(platform.wakes[PilotWake.execute], isNotNull);
-      await pilot(store, platform, vehicle, at(22, 21, 30)).executeMinimum();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
       // 72 min -> 75 min depuis 21:30, plage commencee 5 min avant.
       expect(vehicle.writes.last['chargeTimeStart'], '21:25');
       expect(vehicle.writes.last['chargeDuration'], 80);
@@ -657,7 +657,7 @@ void main() {
         ),
       );
       await pilot(store, platform, vehicle, at(22, 21, 30)).confirmMinimum();
-      await pilot(store, platform, vehicle, at(22, 21, 30)).executeMinimum();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
       vehicle.soc = 35;
       await pilot(store, platform, vehicle, at(22, 22, 46)).tick();
       expect(vehicle.writes.last['chargeTimeStart'], '01:15');
@@ -671,7 +671,7 @@ void main() {
 
       await pilot(store, platform, vehicle, at(22, 13)).tick(); // envoie 14:05
       await pilot(store, platform, vehicle, at(22, 13)).confirmMinimum();
-      await pilot(store, platform, vehicle, at(22, 13)).executeMinimum();
+      await pilot(store, platform, vehicle, at(22, 13)).executeImmediate();
       expect(vehicle.writes.last['chargeTimeStart'], '12:55');
       expect(vehicle.writes.last['chargeDuration'], 250); // jusqu'a 17:05
       expect(store.state.boost?.merged, isTrue);
@@ -691,7 +691,7 @@ void main() {
 
       await pilot(store, platform, vehicle, at(22, 20)).tick();
       await pilot(store, platform, vehicle, at(22, 20)).confirmMinimum();
-      await pilot(store, platform, vehicle, at(22, 20)).executeMinimum();
+      await pilot(store, platform, vehicle, at(22, 20)).executeImmediate();
       expect(store.state.boost?.end, at(22, 21, 50));
 
       await pilot(store, platform, vehicle, at(22, 21, 15)).tick();
@@ -726,6 +726,134 @@ void main() {
       vehicle.plug = PlugState.plugged;
       await pilot(store, platform, vehicle, at(22, 21, 45)).tick();
       expect(platform.minimumProposals, hasLength(2));
+    });
+  });
+
+  group('Charge immediate a la demande', () {
+    // 52 kWh, 7,4 kW : 50 % -> 80 % = 127 min -> 130 min.
+    ChargePlanConfig manualConfig({bool enabled = true}) =>
+        pilotConfig(safeMode: false, enabled: enabled).copyWith(batteryCapacityKwh: 52, chargePowerKw: 7.4);
+    Map<String, dynamic> program(Map<String, dynamic> sent) => (sent['programs'] as List).first as Map<String, dynamic>;
+
+    test('pilotage coupe : charge sans confirmation, puis reglages d\'avant remis', () async {
+      final store = MemoryStore(manualConfig(enabled: false).copyWith(safeMode: true));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 50);
+
+      await pilot(store, platform, vehicle, at(22, 21, 30)).startImmediateCharge(80);
+      expect(platform.wakes[PilotWake.execute], isNotNull);
+      // Passage du pilote (ex. ouverture de l'app) avant l'envoi : la demande reste.
+      await pilot(store, platform, vehicle, at(22, 21, 30)).tick();
+      expect(store.state.manualChargeTarget, 80);
+      expect(platform.wakes[PilotWake.execute], isNotNull);
+
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      expect(platform.confirmations, isEmpty);
+      expect(vehicle.writes.last['chargeTimeStart'], '21:25');
+      expect(vehicle.writes.last['chargeDuration'], 135);
+      expect(store.state.boost?.manual, isTrue);
+      expect(store.state.boost?.targetPercent, 80);
+      expect(store.state.boost?.displaced, isNull);
+      expect(store.state.boost?.previous?.chargeTimeStart, '00:00');
+      expect(platform.wakes[PilotWake.boostEnd], at(22, 23, 40));
+
+      final writes = vehicle.writes.length;
+      await pilot(store, platform, vehicle, at(22, 22)).tick();
+      expect(vehicle.writes, hasLength(writes));
+      expect(platform.wakes[PilotWake.boostEnd], at(22, 23, 40));
+
+      await pilot(store, platform, vehicle, at(22, 23, 41)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '00:00');
+      expect(vehicle.writes.last['chargeDuration'], 1440);
+      expect(program(vehicle.writes.last)['programDepartureTime'], '09:00:00');
+      expect(program(vehicle.writes.last)['programActivationStatus'], isTrue);
+      expect(program(vehicle.writes.last)['programActivationSunday'], isTrue);
+      expect(store.state.boost, isNull);
+      expect(store.state.lastResultOk, isTrue);
+    });
+
+    test('pilotage actif : plage d\'heures creuses renvoyee a la fin', () async {
+      final store = MemoryStore(manualConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 50);
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      expect(store.state.sentId, 'window-20260923T0115');
+      await pilot(store, platform, vehicle, at(22, 21, 30)).startImmediateCharge(80);
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      expect(store.state.boost?.displaced?.id, 'window-20260923T0115');
+
+      await pilot(store, platform, vehicle, at(22, 23, 41)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(vehicle.writes.last['chargeDuration'], 300);
+      expect(store.state.sentId, 'window-20260923T0115');
+    });
+
+    test('arretee : la plage remplacee est renvoyee tout de suite', () async {
+      final store = MemoryStore(manualConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 50);
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).startImmediateCharge(80);
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      await pilot(store, platform, vehicle, at(22, 22)).stopImmediateCharge();
+      expect(platform.wakes[PilotWake.boostEnd], DateTime(2026, 9, 22, 22, 0, 2));
+
+      await pilot(store, platform, vehicle, at(22, 22)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(store.state.boost, isNull);
+    });
+
+    test('arretee alors que prolongee jusqu\'a la plage d\'heures creuses : cette plage est renvoyee', () async {
+      final store = MemoryStore(manualConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 18);
+
+      await pilot(store, platform, vehicle, at(22, 13)).tick(); // envoie 14:05
+      await pilot(store, platform, vehicle, at(22, 13)).startImmediateCharge(50);
+      await pilot(store, platform, vehicle, at(22, 13)).executeImmediate();
+      expect(vehicle.writes.last['chargeTimeStart'], '12:55');
+      expect(vehicle.writes.last['chargeDuration'], 250);
+      expect(store.state.boost?.merged, isTrue);
+
+      await pilot(store, platform, vehicle, at(22, 13, 30)).stopImmediateCharge();
+      await pilot(store, platform, vehicle, at(22, 13, 30)).tick();
+      expect(vehicle.writes.last['chargeTimeStart'], '14:05');
+      expect(vehicle.writes.last['chargeDuration'], 180);
+      expect(store.state.boost, isNull);
+    });
+
+    test('remplace une charge jusqu\'au minimum en cours sans perdre la plage a renvoyer', () async {
+      final store = MemoryStore(manualConfig().copyWith(minChargePercent: 35));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 18);
+
+      await pilot(store, platform, vehicle, at(22, 21, 20)).tick();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).confirmMinimum();
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      expect(store.state.boost?.manual, isFalse);
+
+      // 18 % -> 40 % : 95 min, fin a 23:15 (avant la plage de 01:15).
+      await pilot(store, platform, vehicle, at(22, 21, 40)).startImmediateCharge(40);
+      await pilot(store, platform, vehicle, at(22, 21, 40)).executeImmediate();
+      expect(store.state.boost?.manual, isTrue);
+      expect(store.state.boost?.end, at(22, 23, 15));
+      expect(store.state.boost?.displaced?.id, 'window-20260923T0115');
+      // Reglages d'avant la premiere charge immediate.
+      expect(store.state.boost?.previous?.chargeTimeStart, '01:15');
+    });
+
+    test('voiture debranchee : rien n\'est envoye', () async {
+      final store = MemoryStore(manualConfig(enabled: false));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: 50, plug: PlugState.unplugged);
+
+      await pilot(store, platform, vehicle, at(22, 21, 30)).startImmediateCharge(80);
+      await pilot(store, platform, vehicle, at(22, 21, 30)).executeImmediate();
+      expect(vehicle.writes, isEmpty);
+      expect(platform.results.last, 'Charge immédiate non lancée');
+      expect(store.state.manualChargeTarget, isNull);
     });
   });
 }

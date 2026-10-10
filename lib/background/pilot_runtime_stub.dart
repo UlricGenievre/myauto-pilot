@@ -15,6 +15,10 @@ Future<void> confirmMinimumCharge() async {}
 
 Future<void> ignoreMinimumCharge() async {}
 
+Future<void> startImmediateCharge(int targetPercent) async {}
+
+Future<void> stopImmediateCharge() async {}
+
 Future<bool> requestPilotPermissions() async => false;
 
 Future<bool> notificationsAllowed() async => false;
