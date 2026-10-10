@@ -7,21 +7,31 @@ import '../../../core/models/vehicle_support.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_formatting.dart';
 import '../../../core/widgets/dashboard_card.dart';
+import '../../../core/widgets/toggle_button.dart';
 import '../../auth/auth_controller.dart';
 import '../../vehicle/vehicle_providers.dart';
 import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
 
-/// Interrupteurs du pilotage (actif, mode securise) et etat d'execution :
-/// prochain envoi, confirmation en attente, dernier resultat.
-class AutoPilotCard extends ConsumerWidget {
+/// Boutons du pilotage (envoi auto, mode securise) et etat d'execution :
+/// prochain envoi, confirmation en attente, dernier resultat. Le "?"
+/// affiche l'explication de chaque bouton.
+class AutoPilotCard extends ConsumerStatefulWidget {
   const AutoPilotCard({super.key, required this.config, required this.controller});
 
   final ChargePlanConfig config;
   final ChargePlanConfigController controller;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AutoPilotCard> createState() => _AutoPilotCardState();
+}
+
+class _AutoPilotCardState extends ConsumerState<AutoPilotCard> {
+  var _help = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final config = widget.config;
     final hasWindows = config.calendar.days.values.any((d) => d.allDay || d.windows.isNotEmpty);
     final missing = [
       if (!hasWindows) 'des plages de charge',
@@ -33,45 +43,73 @@ class AutoPilotCard extends ConsumerWidget {
     final canEnable = pilotSupported && !demo && missing.isEmpty && support.canWrite;
     final lead = config.pushLeadMinutes;
     final leadText = lead % 60 == 0 ? '${lead ~/ 60} h' : '${lead ~/ 60} h ${(lead % 60).toString().padLeft(2, '0')}';
+    // Pourquoi l'envoi auto ne peut pas etre active (null : il peut l'etre).
+    final blocker = canEnable || config.enabled
+        ? null
+        : demo
+            ? 'Envoi auto non disponible en démonstration.'
+            : !pilotSupported
+                ? 'Envoi auto disponible sur le téléphone uniquement.'
+                : !support.canWrite
+                    ? 'Modèle de véhicule non pris en charge pour l\'envoi auto.'
+                    : 'Pour l\'envoi auto, définissez d\'abord ${missing.join(' et ')}.';
 
     return DashboardCard(
       title: 'Pilotage automatique',
       icon: Icons.autorenew_rounded,
+      trailing: IconButton(
+        icon: Icon(_help ? Icons.help_rounded : Icons.help_outline_rounded, size: 20, color: AppColors.textSecondary),
+        tooltip: _help ? 'Masquer l\'aide' : 'Aide',
+        visualDensity: VisualDensity.compact,
+        onPressed: () => setState(() => _help = !_help),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: config.enabled,
-            activeTrackColor: AppColors.accent,
-            onChanged: canEnable || config.enabled ? (on) => _setEnabled(context, ref, on) : null,
-            title: const Text('Envoyer les plages de charge automatiquement'),
-            subtitle: Text(
-              demo
-                  ? 'Non disponible en démonstration : aucun envoi n\'est programmé.'
-                  : !pilotSupported
-                  ? 'Disponible sur le téléphone uniquement (réveils et notifications Android).'
-                  : !support.canWrite
-                      ? 'Modèle de véhicule non pris en charge pour le pilotage.'
-                      : missing.isNotEmpty
-                          ? 'Définissez d\'abord ${missing.join(' et ')}.'
-                          : 'La plage est envoyée à la voiture $leadText avant chaque plage d\'heures creuses.',
+          Row(
+            children: [
+              Expanded(
+                child: ToggleButton(
+                  label: 'Envoi auto',
+                  value: config.enabled,
+                  onChanged: canEnable || config.enabled ? _setEnabled : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ToggleButton(
+                  label: 'Mode sécurisé',
+                  value: config.safeMode || support.forcesSafeMode,
+                  locked: support.forcesSafeMode,
+                  onChanged: (on) => widget.controller.edit((c) => c.copyWith(safeMode: on)),
+                ),
+              ),
+            ],
+          ),
+          if (blocker != null) ...[
+            const SizedBox(height: 8),
+            Text(blocker, style: hintStyle),
+          ],
+          if (support.forcesSafeMode && !_help) ...[
+            const SizedBox(height: 8),
+            const Text('Mode sécurisé imposé tant que votre modèle n\'est pas vérifié.', style: hintStyle),
+          ],
+          if (_help) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Envoi auto des plages : la plage est envoyée à la voiture $leadText avant chaque plage d\'heures creuses.',
               style: hintStyle,
             ),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: config.safeMode || support.forcesSafeMode,
-            activeTrackColor: AppColors.accent,
-            onChanged: support.forcesSafeMode ? null : (on) => controller.edit((c) => c.copyWith(safeMode: on)),
-            title: const Text('Mode sécurisé'),
-            subtitle: Text(
+            const SizedBox(height: 6),
+            Text(
               support.forcesSafeMode
-                  ? 'Obligatoire tant que votre modèle n\'est pas vérifié : chaque envoi attend votre confirmation.'
-                  : 'Chaque envoi est proposé par notification et n\'est fait qu\'après votre confirmation.',
+                  ? 'Mode sécurisé : obligatoire tant que votre modèle n\'est pas vérifié, chaque envoi attend votre '
+                      'confirmation.'
+                  : 'Mode sécurisé : chaque envoi est proposé par notification et n\'est fait qu\'après votre '
+                      'confirmation. Il s\'applique aussi à la charge immédiate (confirmation dans l\'app).',
               style: hintStyle,
             ),
-          ),
+          ],
           if (config.enabled && pilotSupported) ...[
             _PermissionWarnings(safeMode: config.effectiveSafeMode),
             const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Divider()),
@@ -82,20 +120,20 @@ class AutoPilotCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _setEnabled(BuildContext context, WidgetRef ref, bool on) async {
+  Future<void> _setEnabled(bool on) async {
     final vehicle = ref.read(selectedVehicleProvider);
     final vin = vehicle?.vin;
     if (on) {
       if (vin == null) return;
       final granted = await requestPilotPermissions();
-      if (!granted && context.mounted) {
+      if (!granted && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Notifications refusées : le mode sécurisé ne pourra pas vous demander de confirmation.'),
         ));
       }
-      if (!await exactAlarmsAllowed() && context.mounted) await _askExactAlarms(context);
+      if (!await exactAlarmsAllowed() && mounted) await _askExactAlarms(context);
     }
-    await controller.edit((c) => c.copyWith(enabled: on, vehicleVin: vin, vehicleModelCode: vehicle?.modelCode));
+    await widget.controller.edit((c) => c.copyWith(enabled: on, vehicleVin: vin, vehicleModelCode: vehicle?.modelCode));
     await refreshPilot(ref.invalidate);
   }
 }
