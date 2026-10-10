@@ -431,7 +431,7 @@ class ChargePilot {
           previous: previous,
         ),
         // Plage atteinte par la charge immediate : deja dans la voiture.
-        sent: merged != null ? CommandMark.of(merged, config.fingerprint) : null,
+        sent: merged != null ? CommandMark.of(merged, config.fingerprint, sentAt: now) : null,
       );
       if (merged == null) {
         await platform.scheduleWake(PilotWake.boostEnd, command.windowEnd);
@@ -715,7 +715,7 @@ class ChargePilot {
           '${climateApplied ? '' : ' La voiture n\'a pas retenu la climatisation.'}';
       await platform.showResult(title, message);
       var next =
-          state.copyWith(sent: CommandMark.of(command, config.fingerprint), clearPending: true, clearConfirmed: true);
+          state.copyWith(sent: CommandMark.of(command, config.fingerprint, sentAt: _clock()), clearPending: true, clearConfirmed: true);
       if (command.kind != ChargeCommandKind.immediateCharge && next.boost != null) {
         // La plage envoyee remplace la charge immediate en cours.
         next = next.copyWith(clearBoost: true);

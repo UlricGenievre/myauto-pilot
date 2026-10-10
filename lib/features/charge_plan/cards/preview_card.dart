@@ -43,17 +43,33 @@ class PreviewCard extends ConsumerWidget {
     return DashboardCard(
       title: 'Charge pilotée',
       icon: Icons.insights_outlined,
-      child: inForce == null && upcoming == null
+      child: inForce == null && upcoming == null && !boostActive
           ? const Text('Définissez des plages de charge pour voir le calcul.', style: hintStyle)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (inForce != null) _CommandSummary(label: 'En vigueur', command: inForce, sent: inForceSent),
+                if (boostActive)
+                  _ImmediateSummary(boost: boost)
+                else if (inForce != null)
+                  _CommandSummary(
+                    label: 'En vigueur',
+                    command: inForce,
+                    status: _inForceStatus(inForce, state, inForceSent),
+                  ),
                 if (changedOutside != null)
                   _ChangedOutside(car: changedOutside, resending: state!.confirmedId == sent!.id),
-                if (inForce != null && upcoming != null)
+                if ((boostActive || inForce != null) && upcoming != null)
                   const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider()),
-                if (upcoming != null) _CommandSummary(label: 'Prochain envoi', command: upcoming),
+                if (upcoming != null)
+                  _CommandSummary(
+                    label: 'Prochain envoi',
+                    command: upcoming,
+                    // Deja dans la voiture : plage atteinte par une charge
+                    // immediate prolongee jusqu'a sa fin.
+                    status: (sent?.covers(upcoming, config.fingerprint) ?? false)
+                        ? (text: 'Déjà envoyée avec la charge immédiate', pending: false)
+                        : (text: 'Envoi ${formatDayTime(upcoming.pushAt)}', pending: false),
+                  ),
                 const SizedBox(height: 12),
                 Text(
                   soc != null ? 'Calcul fait avec une batterie à $soc %.' : 'Niveau de batterie inconnu.',
@@ -61,6 +77,69 @@ class PreviewCard extends ConsumerWidget {
                 ),
               ],
             ),
+    );
+  }
+}
+
+/// Ou en est l'envoi de la plage en vigueur ([pending] : a faire ou a
+/// confirmer, mis en evidence).
+({String text, bool pending}) _inForceStatus(ChargeCommand command, PilotState? state, bool sent) {
+  if (state == null) return (text: 'Envoi ${formatDayTime(command.pushAt)}', pending: false);
+  if (sent) {
+    return (text: 'Envoyé ${formatDayTime(state.sent!.sentAt ?? command.pushAt, separator: ' à ')}', pending: false);
+  }
+  if (state.confirmedId == command.id) return (text: 'Envoi en cours…', pending: true);
+  if (state.pendingId == command.id) return (text: 'À confirmer (voir la notification)', pending: true);
+  if (state.ignoredId == command.id) return (text: 'Ignorée', pending: false);
+  if (state.sentId == command.id) return (text: 'À renvoyer : le paramétrage a changé la plage', pending: true);
+  return (text: 'À envoyer', pending: true);
+}
+
+String _window(DateTime start, DateTime end, int durationMinutes) => durationMinutes >= 1440
+    ? '00:00 → 00:00 (24 h)'
+    : '${formatTimeOfDay(start)} → ${formatTimeOfDay(end)}';
+
+/// Charge immediate en cours : c'est sa plage qui est dans la voiture, a
+/// la place de celle du calendrier.
+class _ImmediateSummary extends StatelessWidget {
+  const _ImmediateSummary({required this.boost});
+
+  final ImmediateCharge boost;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = boost.windowStart;
+    final target = boost.targetPercent;
+    final displaced = boost.displaced;
+    final displacedStart = displaced?.windowStart;
+    final displacedDuration = displaced?.durationMinutes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('EN VIGUEUR', style: hintStyle.copyWith(letterSpacing: 0.8, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(
+          start != null
+              ? 'Charge immédiate ${formatTimeOfDay(start)} → ${formatTimeOfDay(boost.end)}'
+              : 'Charge immédiate jusqu\'à ${formatTimeOfDay(boost.end)}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        if (target != null) ...[
+          const SizedBox(height: 2),
+          Text(boost.manual ? 'Jusqu\'à $target %' : 'Jusqu\'au minimum de $target %'),
+        ],
+        const SizedBox(height: 2),
+        Text('Envoyée ${formatDayTime(boost.sentAt, separator: ' à ')}', style: hintStyle),
+        if (boost.merged)
+          Text('Prolongée jusqu\'à la fin de la plage d\'heures creuses.', style: hintStyle.copyWith(color: AppColors.accent))
+        else if (displacedStart != null && displacedDuration != null)
+          Text(
+            'Plage d\'heures creuses '
+            '${_window(displacedStart, displacedStart.add(Duration(minutes: displacedDuration)), displacedDuration)} '
+            'renvoyée à ${formatTimeOfDay(boost.end)}.',
+            style: hintStyle.copyWith(color: AppColors.accent),
+          ),
+      ],
     );
   }
 }
@@ -124,13 +203,13 @@ class _ChangedOutside extends StatelessWidget {
 }
 
 class _CommandSummary extends StatelessWidget {
-  const _CommandSummary({required this.label, required this.command, this.sent = false});
+  const _CommandSummary({required this.label, required this.command, required this.status});
 
   final String label;
   final ChargeCommand command;
 
-  /// Deja envoyee a la voiture (a son heure d'envoi prevue).
-  final bool sent;
+  /// Etat de l'envoi ([pending] : a faire ou a confirmer).
+  final ({String text, bool pending}) status;
 
   @override
   Widget build(BuildContext context) {
@@ -153,10 +232,7 @@ class _CommandSummary extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 2),
-        Text(
-          sent ? 'Envoyé ${formatDayTime(command.pushAt, separator: ' à ')}' : 'Envoi ${formatDayTime(command.pushAt)}',
-          style: hintStyle,
-        ),
+        Text(status.text, style: status.pending ? hintStyle.copyWith(color: AppColors.accent) : hintStyle),
         if (command.extendedMinutes > 0)
           Text('Élargie de ${command.extendedMinutes} min hors heures creuses pour tenir l\'objectif.',
               style: hintStyle.copyWith(color: AppColors.accent)),

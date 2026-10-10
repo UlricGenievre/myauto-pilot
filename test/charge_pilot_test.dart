@@ -940,4 +940,14 @@ void main() {
       expect((await vehicle.fetchSchedule('VIN')).chargeWindowStart, '23:00');
     });
   });
+
+  test('heure reelle de l\'envoi retenue et conservee', () async {
+    final store = MemoryStore(pilotConfig(safeMode: false));
+    final platform = FakePlatform();
+    // Envoi prevu a 21:15, fait a 22:40 (ex. telephone eteint entre-temps).
+    await pilot(store, platform, FakeVehicle(), at(22, 22, 40)).tick();
+    expect(store.state.sentId, 'window-20260923T0115');
+    expect(store.state.sent?.sentAt, at(22, 22, 40));
+    expect(PilotState.fromJson(store.state.toJson()).sent?.sentAt, at(22, 22, 40));
+  });
 }

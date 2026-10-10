@@ -15,9 +15,10 @@ class CommandMark {
     this.defaultReadyAt = false,
     this.climate = false,
     this.climateTemperature,
+    this.sentAt,
   });
 
-  CommandMark.of(ChargeCommand command, String configFingerprint)
+  CommandMark.of(ChargeCommand command, String configFingerprint, {DateTime? sentAt})
       : this(
           id: command.id,
           signature: command.signature,
@@ -28,6 +29,7 @@ class CommandMark {
           defaultReadyAt: command.defaultReadyAt,
           climate: command.climate,
           climateTemperature: command.climateTemperature,
+          sentAt: sentAt,
         );
 
   final String id;
@@ -42,6 +44,10 @@ class CommandMark {
   final bool defaultReadyAt;
   final bool climate;
   final int? climateTemperature;
+
+  /// Heure reelle de l'envoi, pour une commande envoyee (null : commande
+  /// non envoyee, ou envoyee par une version anterieure).
+  final DateTime? sentAt;
 
   bool get hasContent => windowStart != null && durationMinutes != null && readyAt != null;
 
@@ -78,6 +84,7 @@ class CommandMark {
         if (defaultReadyAt) 'defaultReadyAt': true,
         if (climate) 'climate': true,
         if (climateTemperature != null) 'climateTemperature': climateTemperature,
+        if (sentAt != null) 'sentAt': sentAt!.toIso8601String(),
       };
 
   static CommandMark? fromJson(Object? json) {
@@ -94,6 +101,7 @@ class CommandMark {
       defaultReadyAt: json['defaultReadyAt'] as bool? ?? false,
       climate: json['climate'] as bool? ?? false,
       climateTemperature: json['climateTemperature'] as int?,
+      sentAt: DateTime.tryParse(json['sentAt'] as String? ?? ''),
     );
   }
 }
