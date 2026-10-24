@@ -277,6 +277,68 @@ void main() {
     });
   });
 
+  group('Objectif pendant un bloc HC complet', () {
+    // Bloc du samedi 00:00 au mardi 00:00, sans charge maximale : plage
+    // 24 h envoyee samedi 10:00. Sortie : plage mardi 01:00 envoyee lundi 21:00.
+    OneOffTarget oneOff(int percent, DateTime readyAt, {bool climate = false}) =>
+        OneOffTarget(targetPercent: percent, readyAt: readyAt, climate: climate);
+
+    test('objectif ajoute dimanche pour lundi 08:00 : plage 24 h renvoyee dimanche 10:00 avec l\'objectif', () {
+      final cmd = ChargePlanner(config(oneOff: oneOff(80, at(28, 8), climate: true))).commandInForce(at(27, 15), socPercent: 40)!;
+      expect(cmd.id, 'allday-full-20260927T0000');
+      expect(cmd.pushAt, at(27, 10));
+      expect(cmd.chargeTimeStart.format(), '00:00');
+      expect(cmd.durationMinutes, 1440);
+      expect(cmd.readyAt, at(28, 8));
+      expect(cmd.readyDay, 1);
+      expect(cmd.climate, isTrue);
+    });
+
+    test('objectif dimanche 08:00 : tenu par la plage 24 h du samedi', () {
+      final planner = ChargePlanner(config(oneOff: oneOff(80, at(27, 8))));
+      final cmd = planner.commandInForce(at(26, 15), socPercent: 40)!;
+      expect(cmd.id, 'allday-full-20260926T0000');
+      expect(cmd.readyAt, at(27, 8));
+      // Pas d'autre envoi pendant le bloc.
+      expect(planner.commandInForce(at(28, 15), socPercent: 40)!.id, cmd.id);
+    });
+
+    test('deux objectifs dans le bloc : un envoi par jour qui en porte un', () {
+      final cfg = config(targets: {6: ReadyTarget(targetPercent: 80, readyAt: ClockTime.hm(18, 0)), 1: ReadyTarget(targetPercent: 90, readyAt: ClockTime.hm(8, 0))});
+      final full = ChargePlanner(cfg)
+          .commands(at(25, 12), socPercent: 40)
+          .where((c) => c.kind == ChargeCommandKind.allDayFull && c.pushAt.isBefore(at(29, 0)))
+          .toList();
+      expect(full.map((c) => c.id), ['allday-full-20260926T0000', 'allday-full-20260927T0000']);
+      expect(full[0].readyAt, at(26, 18));
+      expect(full[1].readyAt, at(28, 8));
+      expect(full[1].durationMinutes, 1440);
+    });
+
+    test('sortie du bloc : objectif mardi 07:00 ajoute apres l\'envoi de lundi 21:00, plage recalculee', () {
+      final cmd = ChargePlanner(config(oneOff: oneOff(100, at(29, 7)))).commandInForce(at(28, 22), socPercent: 10)!;
+      expect(cmd.id, 'window-20260929T0100');
+      expect(cmd.pushAt, at(28, 21));
+      expect(cmd.windowStart, at(29, 0, 15));
+      expect(cmd.windowEnd, at(29, 7));
+      expect(cmd.readyAt, at(29, 7));
+    });
+
+    test('sortie du bloc : objectif lundi 23:30 (fin de bloc) tenu par la plage de sortie', () {
+      final planner = ChargePlanner(config(oneOff: oneOff(80, at(28, 23, 30), climate: true)));
+      final cmd = planner.commandInForce(at(28, 22), socPercent: 85)!;
+      expect(cmd.id, 'window-20260929T0100');
+      expect(cmd.windowStart, at(29, 1));
+      expect(cmd.readyAt, at(28, 23, 30));
+      expect(cmd.climate, isTrue);
+
+      // 40 % -> 80 % : 169 min, mais rien avant l'envoi de 21:00 : 150 min utiles.
+      final short = planner.commandInForce(at(28, 22), socPercent: 40)!;
+      expect(short.windowStart, at(28, 21));
+      expect(short.note, contains('inatteignable'));
+    });
+  });
+
   group('Charge maximale', () {
     // 52 kWh, 7,4 kW : 1 % = 4,2 min de charge.
     ChargeCommand byId(ChargePlanConfig c, String id, {int? soc}) =>

@@ -69,6 +69,20 @@ pas encore envoyée (envoi à 09:00).
 | Objectif déjà passé (mar 06:00) | `commandInForce` | Ignoré, contenu inchangé |
 | Plage en cours (mer 03:00), objectif mer 07:00 à 100 %, SOC 40 % | `commandInForce` | Temps déjà passé non compté : 275 min pour 240 restantes. Début non avancé, fin 07:00 (l'échéance), note « inatteignable » |
 
+### Objectif pendant un bloc HC complet
+
+Bloc du sam 26 00:00 au mar 29 00:00, sans charge maximale. La plage 24 h
+est envoyée sam 10:00. La plage de sortie (mar 01:00-07:00) est envoyée lun
+21:00.
+
+| Contexte | Action | Résultat attendu |
+|---|---|---|
+| Dim 15:00, objectif lun 08:00 à 80 % climatisé, SOC 40 % | `commandInForce` | Plage 24 h du dimanche (`allday-full-20260927T0000`) envoyée dim 10:00 : 00:00 + 1440 min, « prête à » lun 08:00, programme actif le lundi, climatisation |
+| Sam 15:00, objectif dim 08:00 à 80 % | `commandInForce` | Tenu par la plage 24 h du samedi (« prête à » dim 08:00), qui reste en vigueur jusqu'au lundi |
+| Agenda : sam 80 % à 18:00, lun 90 % à 08:00 | `commands` | Une plage 24 h par jour qui porte un objectif : samedi (« prête à » sam 18:00) et dimanche (« prête à » lun 08:00, 1440 min) |
+| Lun 22:00, après l'envoi de sortie, objectif mar 07:00 à 100 %, SOC 10 % | `commandInForce` | Plage de sortie recalculée : 00:15-07:00, envoi lun 21:00 (donc tout de suite), « prête à » mar 07:00 |
+| Lun 22:00, objectif lun 23:30 (fin du bloc) climatisé | `commandInForce` | Tenu par la plage de sortie. SOC 85 % : plage inchangée (01:00), « prête à » lun 23:30, climatisation. SOC 40 % : 169 min nécessaires, début avancé au plus à 21:00, soit 150 min utiles avant 23:30, note « inatteignable » |
+
 ### Charge maximale
 
 Calcul fait le mar 22 à 10:00, sur la plage de mercredi 01:00.
@@ -145,6 +159,15 @@ plage de 14:05 est à envoyer à 10:05. Objectif exceptionnel ajouté mar 06:30.
 | Mode auto, objectif mar 15:00 à 100 %, SOC 10 % | `tick` à 06:30, puis à 08:05 | 06:30 : rien renvoyé, réveil à 08:05. 08:05 : plage 14:05 avancée, envoyée en 08:05 / 540 min |
 | Mode sécurisé, même objectif | `tick` à 06:30 | Aucune nouvelle proposition pour la plage terminée |
 | Mode auto, objectif mar 12:00 à 80 % (avant la plage suivante), SOC 50 % | `tick` à 06:30 | Plage terminée renvoyée, prolongée depuis maintenant : 01:15 / 450 min (jusqu'à 08:45), « prête à » 12:00 actif le mardi |
+
+### Objectif ajouté pendant un bloc HC complet
+
+Samedi, dimanche et lundi entièrement en HC, mode auto. La plage 24 h est
+envoyée sam 10:05.
+
+| Paramétrage | Action | Résultat attendu |
+|---|---|---|
+| Objectif lun 08:00 à 80 % climatisé à 20 °C, ajouté dim 15:00 | `tick` à dim 15:00 | Plage 24 h renvoyée : 00:00 / 1440 min, `CHARGE_AND_PRECONDITIONING` au départ 08:00:00, actif le lundi. Commande `allday-full-20260927T0000` comptée comme envoyée |
 
 ### Un seul envoi à la fois
 

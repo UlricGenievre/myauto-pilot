@@ -470,15 +470,26 @@ class ChargePlanner {
       ),
     ];
 
-    // Sans charge maximale : une seule plage 24 h pour tout le bloc. Avec :
+    // Sans charge maximale : une seule plage 24 h pour tout le bloc, renvoyee
+    // a 10:00 les seuls autres jours qui ont un objectif avant 10:00 le
+    // lendemain (heure "pret a" et climatisation du programme dedie). Avec :
     // un envoi par jour du bloc, a 10:00, raccourci d'apres le niveau du
     // moment (une plage 24 h chargerait jusqu'a 100 % chaque nuit).
-    final days = config.maxChargePercent == null ? [day] : _daysOf(block);
+    final blockDays = _daysOf(block);
+    DateTime until(int i) => i + 1 < blockDays.length ? allDayFullPushTime.onDay(blockDays[i + 1]) : block.end;
+    final days = config.maxChargePercent != null
+        ? blockDays
+        : [
+            for (var i = 0; i < blockDays.length; i++)
+              if (i == 0 ||
+                  _firstTarget(allTargets, after: allDayFullPushTime.onDay(blockDays[i]), notAfter: until(i)) != null)
+                blockDays[i],
+          ];
     for (var i = 0; i < days.length; i++) {
       final pushAt = allDayFullPushTime.onDay(days[i]);
       final last = i == days.length - 1;
       final targetUntil = last ? block.end : allDayFullPushTime.onDay(days[i + 1]);
-      final target = _firstTarget(allTargets, after: pushAt, notAfter: config.maxChargePercent == null ? _nextDay(day) : targetUntil);
+      final target = _firstTarget(allTargets, after: pushAt, notAfter: targetUntil);
       // Plage raccourcie : elle part de l'envoi (deja en heures creuses), pour
       // ne pas recharger le lendemain des minuit, avant l'envoi suivant.
       final full = _capped(
@@ -546,7 +557,9 @@ class ChargePlanner {
       earliestStart = previous?.end;
     }
 
-    var target = _firstTarget(allTargets, after: windowStart);
+    // Sortie d'un bloc HC complet : la plage remplace la plage 24 h des son
+    // envoi, elle tient donc aussi un objectif de fin de bloc.
+    var target = _firstTarget(allTargets, after: previous != null && previous.allDay ? earliestStart! : windowStart);
     // Plage deja terminee (encore en vigueur jusqu'a l'envoi de la suivante) :
     // un objectif que la plage suivante precede est tenu par celle-ci, pas
     // par une prolongation de la plage terminee.
@@ -583,13 +596,17 @@ class ChargePlanner {
 
           // 2) Avancer le debut (l'envoi suit, pour rester avant le debut).
           //    Sans effet sur une plage deja commencee.
+          //    Seul compte le temps avant l'echeance (objectif de fin de bloc
+          //    HC, avant le debut de la plage de sortie).
           if (deficit > 0 && windowStart.isAfter(now)) {
-            var newStart = windowStart.subtract(Duration(minutes: deficit));
+            final usefulUntil = target.readyAt.isBefore(windowStart) ? target.readyAt : windowStart;
+            var newStart = usefulUntil.subtract(Duration(minutes: deficit));
             if (earliestStart != null && newStart.isBefore(earliestStart)) newStart = earliestStart;
-            final gained = windowStart.difference(newStart).inMinutes;
-            windowStart = newStart;
-            extendedMinutes += gained;
-            deficit -= gained;
+            if (newStart.isBefore(windowStart)) {
+              extendedMinutes += windowStart.difference(newStart).inMinutes;
+              deficit -= usefulUntil.difference(newStart).inMinutes;
+              windowStart = newStart;
+            }
             if (windowStart.isBefore(pushAt)) pushAt = windowStart;
           }
 

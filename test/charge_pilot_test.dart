@@ -423,6 +423,34 @@ void main() {
     });
   });
 
+  group('objectif ajoute pendant un bloc HC complet', () {
+    test('plage 24 h renvoyee avec l\'heure "prete a" et la climatisation', () async {
+      // Samedi, dimanche, lundi entierement HC ; envoi samedi 10:00.
+      final store = MemoryStore(pilotConfig(safeMode: false).copyWith(
+        calendar: pilotConfig().calendar.withDay(6, const DaySchedule(allDay: true)).withDay(7, const DaySchedule(allDay: true)).withDay(1, const DaySchedule(allDay: true)),
+      ));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle();
+      await pilot(store, platform, vehicle, at(26, 10, 5)).tick();
+      expect(store.state.sentId, 'allday-full-20260926T0000');
+
+      store.config = store.config.copyWith(
+        oneOffTarget: OneOffTarget(targetPercent: 80, readyAt: at(28, 8), climate: true, climateTemperature: 20),
+      );
+      await pilot(store, platform, vehicle, at(27, 15)).tick();
+
+      final sent = vehicle.writes.last;
+      expect(vehicle.writes, hasLength(2));
+      expect(sent['chargeTimeStart'], '00:00');
+      expect(sent['chargeDuration'], 1440);
+      final program = (sent['programs'] as List).first as Map<String, dynamic>;
+      expect(program['programType'], 'CHARGE_AND_PRECONDITIONING');
+      expect(program['programDepartureTime'], '08:00:00');
+      expect(program['programActivationMonday'], isTrue);
+      expect(store.state.sentId, 'allday-full-20260927T0000');
+    });
+  });
+
   group('un seul envoi a la fois', () {
     test('"Recalculer" pendant un envoi confirme : pas de double ecriture', () async {
       final store = MemoryStore(pilotConfig());
