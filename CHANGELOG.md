@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1
+
+- Pilotage : un objectif ajouté entre la fin d'une plage et l'envoi de la
+  suivante ne fait plus renvoyer la plage terminée, prolongée à tort dans
+  le passé ou annoncée prête sans pouvoir charger. La plage suivante tient
+  l'objectif ; s'il tombe avant elle, la charge démarre tout de suite.
+- Pilotage : un objectif ajouté pendant une plage en cours ne compte plus
+  le temps déjà écoulé, qui donnait une plage trop courte.
+- Journées entièrement en heures creuses : un objectif après le premier
+  jour (ou en toute fin de série) programme bien l'heure « prête à » et la
+  climatisation.
+
 ## 0.4.0
 
 - Charge immédiate (onglet Pilotage) : charge maintenant jusqu'au niveau
