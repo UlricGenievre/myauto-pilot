@@ -419,7 +419,7 @@ class ChargePlanner {
       if (occ.allDay) {
         result.addAll(_allDayCommands(occ, previous, allTargets, socPercent));
       } else {
-        result.add(_windowCommand(occ, previous, next, occs.sublist(i), allTargets, socPercent));
+        result.add(_windowCommand(occ, previous, next, occs.sublist(i), allTargets, socPercent, now));
       }
     }
 
@@ -517,6 +517,7 @@ class ChargePlanner {
     List<WindowOccurrence> fromHere,
     List<EffectiveTarget> allTargets,
     int? socPercent,
+    DateTime now,
   ) {
     var pushAt = occ.start.subtract(pushLead);
     var windowStart = occ.start;
@@ -545,7 +546,13 @@ class ChargePlanner {
       earliestStart = previous?.end;
     }
 
-    final target = _firstTarget(allTargets, after: windowStart);
+    var target = _firstTarget(allTargets, after: windowStart);
+    // Plage deja terminee (encore en vigueur jusqu'a l'envoi de la suivante) :
+    // un objectif que la plage suivante precede est tenu par celle-ci, pas
+    // par une prolongation de la plage terminee.
+    if (target != null && !occ.end.isAfter(now) && next != null && next.start.isBefore(target.readyAt)) {
+      target = null;
+    }
     var extendedMinutes = 0;
     String? note;
 
@@ -554,7 +561,9 @@ class ChargePlanner {
       if (needed == null) {
         note = 'Capacité, puissance ou niveau de batterie inconnu : plage non vérifiée pour l\'objectif.';
       } else {
-        final available = _availableMinutes(fromHere, windowStart, target.readyAt);
+        // Le temps deja passe ne compte pas : le niveau de batterie actuel
+        // en tient deja compte.
+        final available = _availableMinutes(fromHere, _maxDate(windowStart, now), target.readyAt);
         var deficit = needed - available;
         if (deficit > 0) {
           deficit = _roundUp(deficit, _roundingMinutes);
@@ -563,15 +572,18 @@ class ChargePlanner {
           //    plage suivante (deja comptee comme disponible).
           var endCap = target.readyAt;
           if (next != null && next.start.isBefore(endCap)) endCap = next.start;
-          if (windowEnd.isBefore(endCap)) {
-            final extension = _minDuration(Duration(minutes: deficit), endCap.difference(windowEnd));
-            windowEnd = windowEnd.add(extension);
+          // Plage deja terminee : la prolongation repart de maintenant.
+          final extendFrom = _maxDate(windowEnd, _floorTo(now, 1));
+          if (extendFrom.isBefore(endCap)) {
+            final extension = _minDuration(Duration(minutes: deficit), endCap.difference(extendFrom));
+            windowEnd = extendFrom.add(extension);
             extendedMinutes += extension.inMinutes;
             deficit -= extension.inMinutes;
           }
 
           // 2) Avancer le debut (l'envoi suit, pour rester avant le debut).
-          if (deficit > 0) {
+          //    Sans effet sur une plage deja commencee.
+          if (deficit > 0 && windowStart.isAfter(now)) {
             var newStart = windowStart.subtract(Duration(minutes: deficit));
             if (earliestStart != null && newStart.isBefore(earliestStart)) newStart = earliestStart;
             final gained = windowStart.difference(newStart).inMinutes;

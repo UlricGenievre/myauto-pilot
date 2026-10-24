@@ -364,6 +364,65 @@ void main() {
     });
   });
 
+  group('objectif ajoute entre deux plages', () {
+    // Plage de nuit envoyee lundi 21:20, terminee mardi 06:15 ; plage de
+    // 14:05 a envoyer a 10:05. Objectif exceptionnel ajoute mardi 06:30.
+    ChargePlanConfig withTarget(OneOffTarget? target, {bool safeMode = false}) =>
+        pilotConfig(safeMode: safeMode).copyWith(batteryCapacityKwh: 52, chargePowerKw: 7.4, oneOffTarget: target);
+
+    Future<(MemoryStore, FakePlatform, FakeVehicle)> nightSent({required int soc, bool safeMode = false}) async {
+      final store = MemoryStore(withTarget(null, safeMode: safeMode));
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle(soc: soc);
+      await pilot(store, platform, vehicle, at(21, 21, 20)).tick();
+      if (safeMode) {
+        await pilot(store, platform, vehicle, at(21, 21, 20)).confirm('window-20260922T0115');
+        await pilot(store, platform, vehicle, at(21, 21, 20)).executeConfirmed();
+      }
+      expect(store.state.sentId, 'window-20260922T0115');
+      return (store, platform, vehicle);
+    }
+
+    test('servi par la plage suivante : plage terminee non renvoyee, suivante avancee et envoyee a son heure', () async {
+      final (store, platform, vehicle) = await nightSent(soc: 10);
+      final writes = vehicle.writes.length;
+
+      store.config = withTarget(OneOffTarget(targetPercent: 100, readyAt: at(22, 15)));
+      await pilot(store, platform, vehicle, at(22, 6, 30)).tick();
+      expect(vehicle.writes, hasLength(writes));
+      // 10 % -> 100 % : 401 min, 55 min de plage avant 15:00 -> debut 08:05.
+      expect(platform.wakes[PilotWake.next], at(22, 8, 5));
+
+      await pilot(store, platform, vehicle, at(22, 8, 5)).tick();
+      expect(vehicle.writes, hasLength(writes + 1));
+      expect(vehicle.writes.last['chargeTimeStart'], '08:05');
+      expect(vehicle.writes.last['chargeDuration'], 540);
+      expect(store.state.sentId, 'window-20260922T1405');
+    });
+
+    test('mode securise : rien de propose pour la plage terminee', () async {
+      final (store, platform, vehicle) = await nightSent(soc: 10, safeMode: true);
+
+      store.config = withTarget(OneOffTarget(targetPercent: 100, readyAt: at(22, 15)), safeMode: true);
+      await pilot(store, platform, vehicle, at(22, 6, 30)).tick();
+      expect(platform.confirmations, ['window-20260922T0115']);
+      expect(store.state.pendingId, isNull);
+    });
+
+    test('avant la plage suivante : plage terminee prolongee depuis maintenant', () async {
+      final (store, platform, vehicle) = await nightSent(soc: 50);
+
+      store.config = withTarget(OneOffTarget(targetPercent: 80, readyAt: at(22, 12)));
+      await pilot(store, platform, vehicle, at(22, 6, 30)).tick();
+      // 50 % -> 80 % : 127 min -> 135 min depuis 06:30, soit 01:15-08:45.
+      expect(vehicle.writes.last['chargeTimeStart'], '01:15');
+      expect(vehicle.writes.last['chargeDuration'], 450);
+      final program = (vehicle.writes.last['programs'] as List).first as Map<String, dynamic>;
+      expect(program['programDepartureTime'], '12:00:00');
+      expect(program['programActivationTuesday'], isTrue);
+    });
+  });
+
   group('un seul envoi a la fois', () {
     test('"Recalculer" pendant un envoi confirme : pas de double ecriture', () async {
       final store = MemoryStore(pilotConfig());

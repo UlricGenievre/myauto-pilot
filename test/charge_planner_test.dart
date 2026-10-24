@@ -231,6 +231,52 @@ void main() {
     });
   });
 
+  group('Entre deux plages', () {
+    // Mardi 07:30 : plage de nuit 01:00-07:00 terminee mais encore en
+    // vigueur, plage 13:00-16:00 pas encore envoyee (envoi a 09:00).
+    final now = at(22, 7, 30);
+    OneOffTarget oneOff(int percent, DateTime readyAt) => OneOffTarget(targetPercent: percent, readyAt: readyAt);
+
+    test('objectif servi par la plage suivante : plage terminee inchangee', () {
+      final planner = ChargePlanner(config(oneOff: oneOff(80, at(22, 14))));
+      final inForce = planner.commandInForce(now, socPercent: 40)!;
+      expect(inForce.id, 'window-20260922T0100');
+      expect(inForce.signature, ChargePlanner(config()).commandInForce(now, socPercent: 40)!.signature);
+      // 40 % -> 80 % : 169 min pour 60 min de plage avant 14:00 -> 120 min de plus.
+      final upcoming = planner.upcomingCommand(now, socPercent: 40)!;
+      expect(upcoming.windowStart, at(22, 11));
+      expect(upcoming.pushAt, at(22, 9));
+      expect(upcoming.readyAt, at(22, 14));
+    });
+
+    test('objectif avant la plage suivante : plage terminee prolongee depuis maintenant', () {
+      final cmd = ChargePlanner(config(oneOff: oneOff(80, at(22, 11)))).commandInForce(now, socPercent: 50)!;
+      // 50 % -> 80 % : 127 min, rien de disponible apres 07:30 -> 135 min.
+      expect(cmd.id, 'window-20260922T0100');
+      expect(cmd.windowStart, at(22, 1));
+      expect(cmd.windowEnd, at(22, 9, 45));
+      expect(cmd.extendedMinutes, 135);
+      expect(cmd.readyAt, at(22, 11));
+      expect(cmd.target!.isOneOff, isTrue);
+    });
+
+    test('objectif deja passe : ignore', () {
+      final cmd = ChargePlanner(config(oneOff: oneOff(80, at(22, 6)))).commandInForce(now, socPercent: 50)!;
+      expect(cmd.signature, ChargePlanner(config()).commandInForce(now, socPercent: 50)!.signature);
+    });
+
+    test('plage en cours : temps deja passe non compte, debut non avance', () {
+      // Mercredi 03:00, objectif 07:00 a 100 % depuis 40 % : 275 min pour
+      // les 240 min restantes, echeance a la fin de plage.
+      final cmd = ChargePlanner(config(oneOff: oneOff(100, at(23, 7)))).commandInForce(at(23, 3), socPercent: 40)!;
+      expect(cmd.id, 'window-20260923T0100');
+      expect(cmd.windowStart, at(23, 1));
+      expect(cmd.windowEnd, at(23, 7));
+      expect(cmd.extendedMinutes, 0);
+      expect(cmd.note, contains('inatteignable'));
+    });
+  });
+
   group('Charge maximale', () {
     // 52 kWh, 7,4 kW : 1 % = 4,2 min de charge.
     ChargeCommand byId(ChargePlanConfig c, String id, {int? soc}) =>
