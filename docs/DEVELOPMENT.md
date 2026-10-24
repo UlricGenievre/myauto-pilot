@@ -24,7 +24,7 @@ lib/
 Etat gere avec Riverpod, appels HTTP avec Dio, pas de generation de code
 (pas de `build_runner`) pour garder le workflow simple avec Docker. La
 logique de pilotage (`core/charge_plan/`) est en Dart pur et couverte par
-les tests (`./scripts/flutter.sh test`).
+les tests (`./scripts/flutter.sh test`), decrits dans `docs/TESTS.md`.
 
 ## Environnement de dev : tout dans Docker, minimum sur WSL
 
