@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- Pilotage : affichage plus juste d'une plage pas encore envoyée à la
+  voiture (ou dont l'envoi a échoué), avec la plage réellement dans la
+  voiture.
+- Composants techniques mis à jour (Flutter 3.47.9).
+
 ## 0.4.1
 
 - Pilotage : un objectif ajouté entre la fin d'une plage et l'envoi de la
