@@ -90,7 +90,7 @@ Calcul fait le mar 22 à 10:00, sur la plage de mercredi 01:00.
 | Paramétrage / SOC | Résultat attendu |
 |---|---|
 | Maximum 80 %, SOC 60 % | Plage raccourcie : 01:00 + 85 min, `maxPercent` 80, note « 80 % » |
-| Maximum 80 %, SOC 85 % | Plage de 5 min terminée à l'envoi (20:55 + 5 min), `maxReached` |
+| Maximum 80 %, SOC 85 % | Plage de 5 min terminée à l'envoi (20:55 + 5 min), `maxReached`, jamais considérée comme terminée (`endedAt`) : envoyée quand même |
 | Maximum 80 %, objectif mer 90 % à 07:30 (servi par la plage), SOC 60 % | L'objectif passe outre : 130 min, `maxPercent` 90. À 100 % : plage complète (360 min), `maxPercent` nul |
 | Maximum 80 %, objectif jeu 90 % à 07:30 (servi plus tard), SOC 60 % | Maximum appliqué : 85 min |
 | Maximum 80 %, SOC inconnu | Plage complète, note « Charge maximale non appliquée » |
@@ -135,6 +135,17 @@ Batterie de 52 kWh à 7,4 kW.
 | Pilotage désactivé | `tick` | Réveils annulés |
 | Session absente | `tick` | « Session expirée », rien envoyé |
 | Envoi prévu à 21:15, fait à 22:40 | `tick` | `sentAt` = 22:40, conservé en JSON |
+
+### Plage terminée sans avoir été envoyée
+
+Plage de nuit 01:15-06:15 à envoyer lun 21:15, encore en vigueur mar matin
+jusqu'à l'envoi de 10:05.
+
+| Contexte | Action | Résultat attendu |
+|---|---|---|
+| Proposée lun 21:15, sans réponse (mode sécurisé) | `tick` mar 08:00 | Proposition retirée, rien de reproposé ni envoyé. Prochain réveil 10:05 |
+| Écriture refusée lun 21:15 (mode automatique) | `tick` mar 08:00 | Pas d'envoi |
+| Proposée lun 21:15 | `confirm` et `executeConfirmed` mar 07:00 | « Plage expirée », rien envoyé |
 
 ### Paramétrage modifié après un envoi
 

@@ -141,6 +141,11 @@ class ChargeCommand {
 
   DateTime get windowEnd => windowStart.add(Duration(minutes: durationMinutes));
 
+  /// Plage deja terminee a [now] (elle reste en vigueur jusqu'a l'envoi de
+  /// la suivante) : l'envoyer ne servirait plus a rien. Jamais vrai pour
+  /// [maxReached], terminee des l'envoi par construction.
+  bool endedAt(DateTime now) => !maxReached && !windowEnd.isAfter(now);
+
   /// Valeur de `chargeTimeStart` ("HH:MM").
   ClockTime get chargeTimeStart => ClockTime.hm(windowStart.hour, windowStart.minute);
 

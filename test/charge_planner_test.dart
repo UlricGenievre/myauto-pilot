@@ -361,6 +361,8 @@ void main() {
       expect(cmd.durationMinutes, 5);
       expect(cmd.maxReached, isTrue);
       expect(cmd.chargeTimeStart.format(), '20:55');
+      // Terminee des l'envoi, mais a envoyer quand meme.
+      expect(cmd.endedAt(at(22, 21, 30)), isFalse);
     });
 
     test('un objectif servi par la plage passe outre le maximum', () {

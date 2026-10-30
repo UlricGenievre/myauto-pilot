@@ -233,6 +233,52 @@ void main() {
     expect(platform.confirmations, hasLength(2));
   });
 
+  group('plage terminee sans avoir ete envoyee', () {
+    // Plage de nuit 01:15-06:15 a envoyer lundi 21:15, encore en vigueur
+    // mardi matin jusqu'a l'envoi de 10:05.
+    test('mode securise : proposition retiree, rien de repropose', () async {
+      final store = MemoryStore(pilotConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle();
+
+      await pilot(store, platform, vehicle, at(21, 21, 15)).tick();
+      expect(store.state.pendingId, 'window-20260922T0115');
+
+      await pilot(store, platform, vehicle, at(22, 8)).tick();
+      expect(store.state.pendingId, isNull);
+      expect(platform.dismissed, 1);
+      expect(platform.confirmations, hasLength(1));
+      expect(vehicle.writes, isEmpty);
+      expect(platform.wakes[PilotWake.next], at(22, 10, 5));
+    });
+
+    test('mode automatique : echec a 21:15, pas d\'envoi le lendemain matin', () async {
+      final store = MemoryStore(pilotConfig(safeMode: false));
+      final platform = FakePlatform();
+
+      await pilot(store, platform, FakeVehicle(failWrite: true), at(21, 21, 15)).tick();
+      expect(store.state.lastResultOk, isFalse);
+
+      final vehicle = FakeVehicle();
+      await pilot(store, platform, vehicle, at(22, 8)).tick();
+      expect(vehicle.writes, isEmpty);
+      expect(store.state.sentId, isNull);
+    });
+
+    test('confirmation tardive apres la fin de la plage : expiree, rien n\'est envoye', () async {
+      final store = MemoryStore(pilotConfig());
+      final platform = FakePlatform();
+      final vehicle = FakeVehicle();
+
+      await pilot(store, platform, vehicle, at(21, 21, 15)).tick();
+      await pilot(store, platform, vehicle, at(22, 7)).confirm('window-20260922T0115');
+      await pilot(store, platform, vehicle, at(22, 7)).executeConfirmed();
+
+      expect(vehicle.writes, isEmpty);
+      expect(platform.results, ['Plage expirée']);
+    });
+  });
+
   test('ecriture jamais appliquee : echec apres le delai d\'attente', () async {
     final store = MemoryStore(pilotConfig(safeMode: false));
     final platform = FakePlatform();

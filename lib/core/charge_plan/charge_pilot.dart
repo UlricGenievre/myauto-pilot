@@ -158,7 +158,15 @@ class ChargePilot {
     final alreadySent = command != null && (state.sent?.covers(command, fingerprint) ?? false);
     final ignored = command != null && (state.ignored?.covers(command, fingerprint) ?? false);
     if (command != null && !alreadySent && !ignored) {
-      if (boost != null && !command.pushAt.isAfter(boost.sentAt)) {
+      if (command.endedAt(now)) {
+        // Terminee sans avoir ete envoyee (echec, confirmation manquee) : la
+        // voiture garde sa plage d'avant jusqu'a l'envoi suivant. Une
+        // proposition encore affichee pour elle est retiree.
+        if (state.pendingId == command.id) {
+          await platform.dismissConfirmation();
+          state = state.copyWith(clearPending: true);
+        }
+      } else if (boost != null && !command.pushAt.isAfter(boost.sentAt)) {
         // Remplacee par la charge immediate en cours : renvoyee a sa fin. Une
         // plage dont l'envoi tombe pendant la charge part normalement.
       } else if (!config.effectiveSafeMode) {
@@ -516,7 +524,7 @@ class ChargePilot {
   /// Reveil "execution" : envoie **exactement** la proposition confirmee
   /// (jamais un recalcul que l'utilisateur n'aurait pas vu), si elle est
   /// toujours d'actualite :
-  /// - plage plus en vigueur -> "expiree", rien n'est envoye ;
+  /// - plage plus en vigueur, ou terminee -> "expiree", rien n'est envoye ;
   /// - parametrage modifie depuis la confirmation -> rien n'est envoye, une
   ///   nouvelle proposition est faite par le passage qui suit ([tick]).
   Future<void> executeConfirmed() async {
@@ -537,9 +545,10 @@ class ChargePilot {
 
     final vehicle = await _safeGateway();
     final soc = vehicle == null ? null : (await _safeBattery(vehicle, vin))?.batteryLevel;
-    final command = ChargePlanner(config).commandInForce(_clock(), socPercent: soc);
+    final now = _clock();
+    final command = ChargePlanner(config).commandInForce(now, socPercent: soc);
 
-    if (command == null || command.id != confirmedId) {
+    if (command == null || command.id != confirmedId || command.endedAt(now)) {
       state = _withResult(state.copyWith(clearConfirmed: true), 'Plage expirée : elle n\'est plus d\'actualité, rien n\'a été envoyé.',
           ok: false);
       await platform.showResult('Plage expirée', state.lastResult!);

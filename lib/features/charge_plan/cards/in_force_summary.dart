@@ -16,7 +16,15 @@ import '../charge_plan_providers.dart';
 /// envoi et la plage relue dans la voiture. Partage entre "Charge pilotee"
 /// (onglet Pilotage) et "Pilotage de charge" (onglet Etat).
 class InForceView {
-  InForceView._({required this.command, required this.state, required this.sent, this.boost, this.changedOutside});
+  InForceView._({
+    required this.command,
+    required this.state,
+    required this.sent,
+    required this.ended,
+    this.boost,
+    this.changedOutside,
+    this.car,
+  });
 
   factory InForceView.watch(WidgetRef ref, ChargePlanConfig config, {int? soc, DateTime? now}) {
     final at = now ?? DateTime.now();
@@ -34,8 +42,10 @@ class InForceView {
       command: command,
       state: state,
       sent: sent,
+      ended: command != null && command.endedAt(at),
       boost: active,
       changedOutside: sent && active == null && car != null && _differs(car, last!) ? car : null,
+      car: car,
     );
   }
 
@@ -48,11 +58,17 @@ class InForceView {
   /// [command] deja envoyee.
   final bool sent;
 
+  /// Plage de [command] terminee (encore en vigueur jusqu'a l'envoi suivant).
+  final bool ended;
+
   /// Charge immediate en cours, a la place de [command].
   final ImmediateCharge? boost;
 
   /// Reglages de la voiture si sa plage n'est plus celle envoyee.
   final VehicleSchedule? changedOutside;
+
+  /// Reglages relus dans la voiture (null : pas encore lus).
+  final VehicleSchedule? car;
 
   bool get isEmpty => command == null && boost == null;
 }
@@ -68,27 +84,52 @@ class InForceSummary extends StatelessWidget {
     final boost = view.boost;
     final command = view.command;
     final changed = view.changedOutside;
+    final state = view.state;
+    // Plage du calendrier pas (encore) dans la voiture : ce que la voiture a
+    // reellement.
+    final car = view.car;
+    final carWindow =
+        boost == null && command != null && state != null && !view.sent && car != null ? _carWindow(car) : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (boost != null)
           _ImmediateSummary(boost: boost)
         else if (command != null)
-          CommandSummary(label: 'En vigueur', command: command, status: _inForceStatus(command, view.state, view.sent)),
+          CommandSummary(
+            label: _inForceLabel(command, view),
+            command: command,
+            status: _inForceStatus(command, state, view.sent, view.ended),
+          ),
+        if (carWindow != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('Dans la voiture : $carWindow', style: hintStyle),
+          ),
         if (changed != null)
-          _ChangedOutside(car: changed, resending: view.state!.confirmedId == view.state!.sentId),
+          _ChangedOutside(car: changed, resending: state!.confirmedId == state.sentId, ended: view.ended),
       ],
     );
   }
 }
 
+/// Titre du bloc : "En vigueur" seulement si la plage est dans la voiture.
+String _inForceLabel(ChargeCommand command, InForceView view) {
+  final state = view.state;
+  if (state == null) return 'Plage actuelle';
+  if (view.sent) return 'En vigueur';
+  if (view.ended || state.ignoredId == command.id) return 'Non envoyée';
+  return 'À envoyer';
+}
+
 /// Ou en est l'envoi de la plage en vigueur ([pending] : a faire ou a
 /// confirmer, mis en evidence).
-({String text, bool pending}) _inForceStatus(ChargeCommand command, PilotState? state, bool sent) {
+({String text, bool pending}) _inForceStatus(ChargeCommand command, PilotState? state, bool sent, bool ended) {
   if (state == null) return (text: 'Envoi ${formatDayTime(command.pushAt)}', pending: false);
   if (sent) {
     return (text: 'Envoyé ${formatDayTime(state.sent!.sentAt ?? command.pushAt, separator: ' à ')}', pending: false);
   }
+  if (ended) return (text: 'Plage terminée sans avoir été envoyée.', pending: false);
   if (state.confirmedId == command.id) return (text: 'Envoi en cours…', pending: true);
   if (state.pendingId == command.id) return (text: 'À confirmer (voir la notification)', pending: true);
   if (state.ignoredId == command.id) return (text: 'Ignorée', pending: false);
@@ -145,6 +186,16 @@ class _ImmediateSummary extends StatelessWidget {
   }
 }
 
+/// Plage de charge de [car] ("HH:MM → HH:MM"), null si illisible.
+String? _carWindow(VehicleSchedule car) {
+  final start = ClockTime.tryParse(car.chargeWindowStart);
+  final duration = car.chargeWindowDurationMinutes;
+  if (start == null || duration == null) return null;
+  return duration >= 1440
+      ? '00:00 → 00:00 (24 h)'
+      : '${start.format()} → ${ClockTime((start.minutes + duration) % 1440).format()}';
+}
+
 /// La plage de la voiture n'est plus celle envoyee ([sent]) ; faux si l'une
 /// des deux est illisible.
 bool _differs(VehicleSchedule car, CommandMark sent) {
@@ -155,27 +206,27 @@ bool _differs(VehicleSchedule car, CommandMark sent) {
 
 /// Plage modifiee hors app : laquelle, et un bouton pour renvoyer celle de
 /// l'app. Pour garder la modification, il suffit de ne rien faire (le
-/// prochain envoi prevu la remplacera).
+/// prochain envoi prevu la remplacera). Pas de bouton une fois la plage
+/// terminee : la renvoyer ne servirait plus a rien.
 class _ChangedOutside extends StatelessWidget {
-  const _ChangedOutside({required this.car, required this.resending});
+  const _ChangedOutside({required this.car, required this.resending, required this.ended});
 
   final VehicleSchedule car;
   final bool resending;
+  final bool ended;
 
   @override
   Widget build(BuildContext context) {
-    final start = ClockTime.tryParse(car.chargeWindowStart)!;
-    final duration = car.chargeWindowDurationMinutes!;
-    final window = duration == 1440
-        ? '00:00 → 00:00 (24 h)'
-        : '${start.format()} → ${ClockTime((start.minutes + duration) % 1440).format()}';
+    final window = _carWindow(car)!;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Modifié hors app avec $window.', style: hintStyle.copyWith(color: AppColors.accent)),
-          if (resending)
+          if (ended)
+            const SizedBox.shrink()
+          else if (resending)
             const Padding(
               padding: EdgeInsets.only(top: 4),
               child: Text('Renvoi en cours…', style: hintStyle),
