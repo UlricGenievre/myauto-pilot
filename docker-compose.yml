@@ -2,7 +2,7 @@ services:
   flutter:
     # SDK Flutter a version fixe : cf. Dockerfile.
     build: .
-    image: myauto-pilot-flutter:3.47.5
+    image: myauto-pilot-flutter:3.47.9
     working_dir: /app
     volumes:
       - .:/app

@@ -6,8 +6,8 @@
 # puis `docker compose build`.
 FROM ghcr.io/cirruslabs/flutter:3.44.0
 
-ARG FLUTTER_VERSION=3.47.5
-ARG FLUTTER_SHA256=2132e990f236f8d22e7c6314b29a191a95b10d7cbcfec9b4e2e303d996652cbb
+ARG FLUTTER_VERSION=3.47.9
+ARG FLUTTER_SHA256=25ed8c3c29d51a7353f2a944310b478af8214920639524b19c50a19e6c044c5a
 
 RUN rm -rf /sdks/flutter \
     && curl -fsSL -o /tmp/flutter.tar.xz \
