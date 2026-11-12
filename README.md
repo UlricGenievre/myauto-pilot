@@ -49,7 +49,7 @@ voiture, avant chaque plage, la plage de charge qui convient.
 ## Aperçu
 
 <p align="center">
-  <img src="docs/screenshots/etat.png" width="23%" alt="Onglet État : batterie et résumé du pilotage">
+  <img src="docs/screenshots/etat.png" width="23%" alt="Onglet État : batterie, santé de la batterie et résumé du pilotage">
   <img src="docs/screenshots/pilotage.png" width="23%" alt="Onglet Pilotage : charge pilotée et pilotage automatique">
   <img src="docs/screenshots/reglages.png" width="23%" alt="Réglages : plages d'heures creuses par jour et délai d'envoi">
   <img src="docs/screenshots/agenda.png" width="23%" alt="Agenda d'objectifs « prête à X % » par jour">
