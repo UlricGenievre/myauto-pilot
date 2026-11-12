@@ -162,6 +162,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Démonstration'), findsOneWidget);
     expect(find.text('Renault Rafale'), findsOneWidget);
+    // Sante de la batterie a cote de la jauge, aide repliee puis depliee.
+    expect(find.text('96 %'), findsOneWidget);
+    expect(find.text('Bon état'), findsOneWidget);
+    expect(find.textContaining('cycles de charge'), findsNothing);
+    await tester.tap(find.byTooltip('Qu\'est-ce que la santé de la batterie ?'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('cycles de charge'), findsOneWidget);
 
     await tester.tap(find.text('Pilotage'));
     await tester.pumpAndSettle();

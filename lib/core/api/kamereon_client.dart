@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../debug/dev_log.dart';
 import 'api_config.dart';
 import 'api_exception.dart';
+import '../models/battery_health.dart';
 import '../models/battery_status.dart';
 import '../models/cockpit.dart';
 import '../models/hvac_status.dart';
@@ -53,15 +54,20 @@ class KamereonClient {
   final Future<String?> Function()? _onUnauthorized;
   final Future<bool> Function()? _onKeyRejected;
 
+  /// Serveur a utiliser a la place de Kamereon pour une requete (passerelle
+  /// "myr"), dans `Options.extra`. Meme cle, meme JWT, memes reprises.
+  static const _baseUrlKey = 'baseUrl';
+
   /// Les chemins sont relatifs ("/commerce/...") : serveur et cle sont lus a
   /// chaque requete (y compris un rejeu), pour suivre une mise a jour des
   /// cles sans recreer le client.
   void _useCurrentServerAndKey(RequestOptions options, RequestInterceptorHandler handler) {
     try {
       final relative = options.extra['relPath'] as String? ?? options.path;
+      final base = options.extra[_baseUrlKey] as String? ?? ApiConfig.kamereonBaseUrl;
       options
         ..extra['relPath'] = relative
-        ..path = '${ApiConfig.kamereonBaseUrl}$relative'
+        ..path = '$base$relative'
         ..headers['apikey'] = ApiConfig.kamereonApiKey;
       handler.next(options);
     } on ApiException catch (e) {
@@ -193,6 +199,45 @@ class KamereonClient {
   }) async {
     final data = await _get(_carAdapterPath(accountId, vin, 'location'), jwt: jwt);
     return VehicleLocation.fromJson(data['data'] as Map<String, dynamic>? ?? const {});
+  }
+
+  /// Sante de la batterie (null si le vehicule ne la fournit pas).
+  ///
+  /// Pas sur Kamereon (`battery-status` ne la donne pas, et sur le Rafale ni
+  /// capacite ni energie disponible) mais sur la seconde passerelle de l'app
+  /// officielle MyRenault, `apis.renault.com/myr` (documentee par
+  /// `renault-api`, `docs/myr-gateway.rst`) : `POST .../state` avec les
+  /// fonctions demandees (`uidveh` : 202 kilometrage, 345 sante de la batterie
+  /// hybride) et la date de livraison. Lecture seule, sans action sur le
+  /// vehicule. Present comme asynchrone dans cette doc, mais sur le Rafale
+  /// reel la reponse contient directement `sohBlms` (constate le 2026-11-12).
+  ///
+  /// Depuis l'apercu web, le navigateur bloque cet appel (CORS) : erreur.
+  Future<BatteryHealth?> fetchBatteryHealth({
+    required String jwt,
+    required String accountId,
+    required String vin,
+    String? deliveryDate,
+  }) async {
+    final path = '/myr/api/v1/accounts/$accountId/vehicles/$vin/state';
+    try {
+      final response = await _dio.post<dynamic>(
+        path,
+        queryParameters: {'country': ApiConfig.country},
+        data: {
+          'uidveh': [202, 345],
+          'deliveryDate': ?deliveryDate,
+        },
+        options: _authHeaders(jwt).copyWith(extra: {_baseUrlKey: ApiConfig.myrBaseUrl}),
+      );
+      final data = response.data;
+      return BatteryHealth.fromStateJson(data is String && data.isNotEmpty ? jsonDecode(data) : data);
+    } on DioException catch (e) {
+      final message = _describeDioError(e);
+      _logError('Santé de la batterie indisponible sur $path: $message');
+      throw ApiException('Santé de la batterie indisponible: $message',
+          statusCode: e.response?.statusCode, keyRejected: isKeyRejection(e));
+    }
   }
 
   /// Programmes (charge/preclimatisation) + plage de charge globale.

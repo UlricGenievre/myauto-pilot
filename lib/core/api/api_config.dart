@@ -29,4 +29,9 @@ abstract final class ApiConfig {
   static String get gigyaBaseUrl => _required.gigyaUrl;
   static String get kamereonApiKey => _required.kamereonKey;
   static String get kamereonBaseUrl => _required.kamereonUrl;
+
+  /// Passerelle "myr" de l'app officielle MyRenault (sante de la batterie) :
+  /// adresse fixe, absente des reglages publies par `renault-api`. Meme cle
+  /// que Kamereon.
+  static const myrBaseUrl = 'https://apis.renault.com';
 }

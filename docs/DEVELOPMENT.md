@@ -6,7 +6,7 @@
 lib/
   background/        Reveils Android + notifications du pilotage (version web vide)
   core/
-    api/             Clients Gigya (auth) et Kamereon, cles Renault (renault-api)
+    api/             Clients Gigya (auth) et Kamereon (+ passerelle myr), cles Renault (renault-api)
     charge_plan/     Calcul des plages (ChargePlanner) et pilotage (ChargePilot)
     models/          Vehicule, batterie, reglages de charge, parametrage...
     storage/         Stockage securise (session, cles, parametrage, etat du pilote)

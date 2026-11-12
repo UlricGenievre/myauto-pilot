@@ -6,6 +6,8 @@ import '../theme/app_theme.dart';
 
 /// Anneau de charge façon tableau de bord : arc de progression, niveau en
 /// grand au centre, autonomie et etat de charge en dessous.
+///
+/// Trait et texte suivent [size] (taille de reference 220).
 class BatteryGauge extends StatelessWidget {
   const BatteryGauge({
     super.key,
@@ -25,6 +27,8 @@ class BatteryGauge extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = (level ?? 0).clamp(0, 100) / 100;
     final color = isCharging ? AppColors.success : AppColors.accent;
+    final stroke = (size * 0.075).clamp(10.0, 14.0);
+    final levelFontSize = (size * 0.215).clamp(24.0, 44.0);
 
     return SizedBox(
       width: size,
@@ -34,23 +38,27 @@ class BatteryGauge extends StatelessWidget {
         children: [
           CustomPaint(
             size: Size.square(size),
-            painter: _GaugePainter(value: value, color: color),
+            painter: _GaugePainter(value: value, color: color, strokeWidth: stroke),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isCharging) ...[
-                const Icon(Icons.bolt_rounded, color: AppColors.success, size: 22),
+                Icon(Icons.bolt_rounded, color: AppColors.success, size: size < 200 ? 18 : 22),
                 const SizedBox(height: 2),
               ],
               Text(
                 level != null ? '$level%' : '--',
-                style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w800, height: 1),
+                style: TextStyle(fontSize: levelFontSize, fontWeight: FontWeight.w800, height: 1),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: size < 200 ? 4 : 6),
               Text(
                 rangeKm != null ? '$rangeKm km' : 'Autonomie inconnue',
-                style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: size < 200 ? 13 : 14,
+                ),
               ),
             ],
           ),
@@ -61,10 +69,11 @@ class BatteryGauge extends StatelessWidget {
 }
 
 class _GaugePainter extends CustomPainter {
-  _GaugePainter({required this.value, required this.color});
+  _GaugePainter({required this.value, required this.color, required this.strokeWidth});
 
   final double value;
   final Color color;
+  final double strokeWidth;
 
   static const _startAngle = -pi / 2 - pi * 0.8;
   static const _sweepMax = pi * 1.6;
@@ -78,7 +87,7 @@ class _GaugePainter extends CustomPainter {
     final track = Paint()
       ..color = AppColors.surfaceHigh
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
+      ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, _startAngle, _sweepMax, false, track);
 
@@ -86,7 +95,7 @@ class _GaugePainter extends CustomPainter {
       final progress = Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 14
+        ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
       canvas.drawArc(rect, _startAngle, _sweepMax * value, false, progress);
     }
@@ -94,5 +103,5 @@ class _GaugePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GaugePainter oldDelegate) =>
-      oldDelegate.value != value || oldDelegate.color != color;
+      oldDelegate.value != value || oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
 }

@@ -6,6 +6,7 @@ class Vehicle {
     required this.model,
     this.modelCode,
     this.nickname,
+    this.deliveryDate,
   });
 
   final String vin;
@@ -17,6 +18,10 @@ class Vehicle {
   final String? modelCode;
   final String? nickname;
 
+  /// Date de livraison "AAAA-MM-JJ", demandee par Renault pour lire la
+  /// sante de la batterie (cf. `KamereonClient.fetchBatteryHealth`).
+  final String? deliveryDate;
+
   factory Vehicle.fromJson(Map<String, dynamic> json) {
     return Vehicle(
       vin: json['vin'] as String,
@@ -24,6 +29,7 @@ class Vehicle {
       model: (json['model'] as Map<String, dynamic>?)?['label'] as String? ?? '',
       modelCode: (json['model'] as Map<String, dynamic>?)?['code'] as String?,
       nickname: json['nickname'] as String?,
+      deliveryDate: json['deliveryDate'] as String?,
     );
   }
 

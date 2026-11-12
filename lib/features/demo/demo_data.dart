@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../core/api/kamereon_client.dart';
 import '../../core/charge_plan/pilot_state.dart';
+import '../../core/models/battery_health.dart';
 import '../../core/models/battery_status.dart';
 import '../../core/models/charge_plan_config.dart';
 import '../../core/models/cockpit.dart';
@@ -46,6 +47,12 @@ class DemoVehicleRepository implements VehicleRepository {
       batteryCapacityKwh: 80,
       availableEnergyKwh: 36.8,
     );
+  }
+
+  @override
+  Future<BatteryHealth?> fetchBatteryHealth(Vehicle vehicle) async {
+    await Future<void>.delayed(_latency);
+    return const BatteryHealth(percent: 96);
   }
 
   @override

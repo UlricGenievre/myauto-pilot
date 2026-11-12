@@ -26,8 +26,9 @@ aucune publicité, aucun rapport de plantage envoyé**. Le développeur n'a acc�
 
 L'application communique uniquement avec :
 
-- les **serveurs Renault** (Gigya/SAP pour la connexion, Kamereon pour les
-  données et réglages du véhicule), avec vos identifiants de session ;
+- les **serveurs Renault** (Gigya/SAP pour la connexion, Kamereon et
+  `apis.renault.com` pour les données et réglages du véhicule), avec vos
+  identifiants de session ;
   voir la politique de confidentialité de Renault pour leur traitement ;
 - **GitHub** (`raw.githubusercontent.com`), pour télécharger les clés
   d'accès aux services Renault publiées par le projet

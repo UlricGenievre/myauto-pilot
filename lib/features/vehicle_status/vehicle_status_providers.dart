@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/battery_health.dart';
 import '../../core/models/battery_status.dart';
 import '../../core/models/cockpit.dart';
 import '../../core/models/hvac_status.dart';
@@ -11,6 +12,21 @@ final batteryStatusProvider = FutureProvider.autoDispose<BatteryStatus?>((ref) a
   final vehicle = ref.watch(selectedVehicleProvider);
   if (repository == null || vehicle == null) return null;
   return repository.fetchBatteryStatus(vehicle.vin);
+});
+
+/// Sante de la batterie : evolue tres lentement, donc lue une fois par
+/// vehicule et par lancement de l'app (pas d'autoDispose, pas relue au
+/// rafraichissement de l'onglet). Erreur (vehicule sans cette donnee,
+/// apercu web) traitee comme "indisponible".
+final batteryHealthProvider = FutureProvider<BatteryHealth?>((ref) async {
+  final repository = ref.watch(vehicleRepositoryProvider);
+  final vehicle = ref.watch(selectedVehicleProvider);
+  if (repository == null || vehicle == null) return null;
+  try {
+    return await repository.fetchBatteryHealth(vehicle);
+  } on Object {
+    return null;
+  }
 });
 
 final cockpitProvider = FutureProvider.autoDispose<Cockpit?>((ref) async {

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/battery_health.dart';
 import '../../core/models/battery_status.dart';
 import '../../core/models/cockpit.dart';
 import '../../core/models/hvac_status.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/date_formatting.dart';
 import '../../core/widgets/battery_gauge.dart';
+import '../../core/widgets/battery_health_indicator.dart';
 import '../../core/widgets/dashboard_card.dart';
 import '../../core/widgets/stat_tile.dart';
 import '../charge_plan/cards/pilot_summary_card.dart';
@@ -34,7 +36,11 @@ class VehicleStatusScreen extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
-          _BatterySection(asyncBattery: battery, inChargeWindow: inChargeWindow),
+          _BatterySection(
+            asyncBattery: battery,
+            asyncHealth: ref.watch(batteryHealthProvider),
+            inChargeWindow: inChargeWindow,
+          ),
           const SizedBox(height: 16),
           const PilotSummaryCard(),
           const SizedBox(height: 16),
@@ -49,48 +55,141 @@ class VehicleStatusScreen extends ConsumerWidget {
   }
 }
 
-class _BatterySection extends StatelessWidget {
-  const _BatterySection({required this.asyncBattery, this.inChargeWindow});
+/// Carte du haut : jauge de charge et sante de la batterie cote a cote
+/// (60 % / 40 %), pastille d'etat de charge dessous.
+class _BatterySection extends StatefulWidget {
+  const _BatterySection({required this.asyncBattery, required this.asyncHealth, this.inChargeWindow});
 
   final AsyncValue<BatteryStatus?> asyncBattery;
+  final AsyncValue<BatteryHealth?> asyncHealth;
 
   /// Heure actuelle dans la plage de charge de la voiture (null : inconnu).
   final bool? inChargeWindow;
 
   @override
+  State<_BatterySection> createState() => _BatterySectionState();
+}
+
+class _BatterySectionState extends State<_BatterySection> {
+  var _showHelp = false;
+
+  /// Taille maximale de la jauge, reduite si sa colonne (60 % de la carte)
+  /// est plus etroite (petits ecrans).
+  static const _gaugeSize = 184.0;
+
+  @override
   Widget build(BuildContext context) {
+    final health = widget.asyncHealth.value;
     return DashboardCard(
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      child: asyncBattery.when(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      child: widget.asyncBattery.when(
         data: (battery) {
           if (battery == null) {
-            return const Center(child: Text('Aucun véhicule sélectionné.'));
+            return const SizedBox(
+              width: double.infinity,
+              child: Center(child: Text('Aucun véhicule sélectionné.')),
+            );
           }
-          // Toute la largeur de la carte, pour centrer la jauge.
-          return SizedBox(
-            width: double.infinity,
-            child: Column(
-              children: [
-                BatteryGauge(
-                  level: battery.batteryLevel,
-                  rangeKm: battery.rangeKm,
-                  isCharging: battery.isCharging ?? false,
-                ),
-                if (_ChargeLine.of(battery, inChargeWindow: inChargeWindow) case final line?) ...[
-                  const SizedBox(height: 20),
-                  line,
+          return Column(
+            children: [
+              Row(
+                children: [
+                  // 60 % / 40 % : la sante prend moins de place que la jauge.
+                  Expanded(
+                    flex: 3,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => Center(
+                        child: BatteryGauge(
+                          level: battery.batteryLevel,
+                          rangeKm: battery.rangeKm,
+                          isCharging: battery.isCharging ?? false,
+                          size: constraints.maxWidth < _gaugeSize ? constraints.maxWidth : _gaugeSize,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: widget.asyncHealth.isLoading
+                          ? const SizedBox.shrink()
+                          : health == null
+                              ? const Text(
+                                  'Santé indisponible',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 13),
+                                )
+                              : BatteryHealthIndicator(
+                                  health: health,
+                                  helpShown: _showHelp,
+                                  onHelp: () => setState(() => _showHelp = !_showHelp),
+                                ),
+                    ),
+                  ),
                 ],
+              ),
+              if (_showHelp && health != null) const _HealthHelp(),
+              if (_ChargeLine.of(battery, inChargeWindow: widget.inChargeWindow) case final line?) ...[
+                const SizedBox(height: 14),
+                line,
               ],
-            ),
+            ],
           );
         },
-        loading: () => const SizedBox(height: 220, child: Center(child: CircularProgressIndicator())),
+        loading: () => const SizedBox(
+          width: double.infinity,
+          height: _gaugeSize,
+          child: Center(child: CircularProgressIndicator()),
+        ),
         error: (error, _) => SizedBox(
+          width: double.infinity,
           height: 120,
           child: Center(
             child: Text('Erreur : $error', style: const TextStyle(color: AppColors.error)),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HealthHelp extends StatelessWidget {
+  const _HealthHelp();
+
+  static const _style = TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+      decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: 'Santé de la batterie',
+                  style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
+                ),
+                TextSpan(
+                  text: ' : capacité actuelle de la batterie de traction comparée à sa capacité neuve, '
+                      'mesurée par le véhicule et transmise par Renault.',
+                ),
+              ],
+            ),
+            style: _style,
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Elle baisse lentement avec l\'âge et les cycles de charge. Une valeur au-dessus de 90 % '
+            'est courante les premières années.',
+            style: _style,
+          ),
+        ],
       ),
     );
   }

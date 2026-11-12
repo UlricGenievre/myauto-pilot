@@ -41,7 +41,8 @@ voiture, avant chaque plage, la plage de charge qui convient.
   réglable), à l'heure exacte, même application fermée.
 - **Mode sécurisé** (activé par défaut) : chaque envoi vous est proposé par
   notification et n'est fait qu'après votre confirmation.
-- Tableau de bord : batterie, branchement et état de charge, autonomie
+- Tableau de bord : batterie, santé de la batterie (si le véhicule la
+  fournit), branchement et état de charge, autonomie
   (et carburant des hybrides rechargeables), position, climatisation et
   charge à distance, klaxon et phares.
 
