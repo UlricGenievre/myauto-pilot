@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../background/pilot_runtime.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/models/battery_health.dart';
 import '../../core/widgets/battery_gauge.dart';
+import '../../core/widgets/battery_health_indicator.dart';
 import '../../core/widgets/dashboard_card.dart';
 import '../../core/widgets/status_pill.dart';
 import '../charge_plan/charge_plan_pickers.dart';
@@ -29,7 +31,14 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
   static const _pages = [
     _TutorialPage(
-      illustration: BatteryGauge(level: 78, rangeKm: 320, size: 150),
+      illustration: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          BatteryGauge(level: 78, rangeKm: 320, size: 150),
+          SizedBox(width: 28),
+          BatteryHealthIndicator(health: BatteryHealth(percent: 96)),
+        ],
+      ),
       title: 'Votre voiture en un coup d\'œil',
       details: _TabList(),
     ),
@@ -192,7 +201,7 @@ class _TabList extends StatelessWidget {
   const _TabList();
 
   static const _tabs = [
-    (Icons.speed_outlined, 'État', 'batterie, autonomie, branchement et charge'),
+    (Icons.speed_outlined, 'État', 'batterie et sa santé, autonomie, branchement et charge'),
     (Icons.map_outlined, 'Localisation', 'position du véhicule sur la carte'),
     (Icons.bolt_outlined, 'Pilotage', 'charge en heures creuses et objectifs'),
     (Icons.settings_remote_outlined, 'Actions', 'climatisation, charge, klaxon et phares à distance'),
