@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+
+- Tutoriel du premier lancement : présente la santé de la batterie dans
+  l'onglet État.
+
 ## 0.5.0
 
 - Onglet État : santé de la batterie à côté de la jauge de charge, avec
