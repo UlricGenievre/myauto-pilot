@@ -37,8 +37,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     RemoteActionsScreen(),
   ];
 
-  static const _titles = ['État', 'Localisation', 'Pilotage', 'Actions'];
-
   /// Tient a jour le code modele du vehicule pilote (il determine ce que
   /// l'app peut y ecrire), y compris pour un parametrage enregistre sans.
   void _syncPilotedModelCode(List<Vehicle> vehicles) {
@@ -100,16 +98,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       body: Column(
         children: [
           if (demo) const _DemoBanner(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _titles[tabIndex],
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
+          // Pas de titre d'ecran : la barre d'onglets indique deja l'onglet
+          // actif (libelle + surbrillance).
+          const SizedBox(height: 8),
           Expanded(child: _tabs[tabIndex]),
         ],
       ),
