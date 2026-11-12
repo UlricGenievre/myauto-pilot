@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+- Onglet État : santé de la batterie à côté de la jauge de charge, avec
+  une appréciation (bon état, usure normale, à faire contrôler) et une
+  aide derrière le « ? ». Affichée si le véhicule la fournit à Renault
+  (constaté sur Rafale hybride rechargeable).
+- Onglet État plus compact : la carte Véhicule tient mieux à l'écran.
+- Les onglets n'affichent plus de titre : la barre d'onglets indique déjà
+  l'onglet actif.
+
 ## 0.4.2
 
 - Pilotage : affichage plus juste d'une plage pas encore envoyée à la
