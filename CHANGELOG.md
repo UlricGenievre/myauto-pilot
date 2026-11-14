@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.2
+
+- Comptes MyRenault multiples : les véhicules de tous les comptes du
+  profil sont affichés (auparavant, seul le premier compte était lu, d'où
+  « Aucun véhicule sélectionné » quand il n'avait pas de véhicule).
+- Plusieurs véhicules : un seul est piloté à la fois, et c'est indiqué.
+  Sur un autre véhicule, l'onglet Pilotage le signale et propose de
+  « Piloter ce véhicule à la place » (programme dédié et batterie à
+  régler à nouveau ; plages, agendas et seuils conservés).
+- En-tête : le nom du véhicule en titre, liste des véhicules dans une
+  feuille (véhicule piloté signalé), en-tête sur un fond distinct.
+- Démonstration avec deux véhicules, bandeau masquable.
+
 ## 0.5.1
 
 - Tutoriel du premier lancement : présente la santé de la batterie dans
