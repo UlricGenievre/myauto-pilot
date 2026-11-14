@@ -13,30 +13,66 @@ import '../../core/models/vehicle_schedule.dart';
 import '../../core/storage/charge_plan_storage.dart';
 import '../vehicle/vehicle_repository.dart';
 
-/// Mode demonstration : vehicule fictif, sans compte MyRenault ni aucun
-/// appel aux serveurs Renault (decouverte de l'app, relecture par les
+/// Mode demonstration : deux vehicules fictifs, sans compte MyRenault ni
+/// aucun appel aux serveurs Renault (decouverte de l'app, relecture par les
 /// stores). Les ecritures sont simulees en memoire et oubliees a la sortie.
 
-const demoVehicle = Vehicle(vin: 'VF1DEMONSTRATION1', brand: 'Renault', model: 'Rafale', modelCode: 'XHN1CP');
+/// Vehicule pilote par le parametrage d'exemple (modele verifie).
+const demoVehicle = Vehicle(
+  vin: 'VF1DEMONSTRATION1',
+  brand: 'Renault',
+  model: 'Rafale',
+  modelCode: 'XHN1CP',
+  accountId: 'demo-compte-1',
+);
+
+/// Second vehicule, sur un autre compte et non pilote : montre le choix du
+/// vehicule pilote (modele compatible, mode securise impose).
+const demoSecondVehicle = Vehicle(
+  vin: 'VF1DEMONSTRATION2',
+  brand: 'Renault',
+  model: '5 E-Tech',
+  modelCode: 'R5E1VE',
+  accountId: 'demo-compte-2',
+);
 
 /// Latence simulee des appels, pour que l'interface se comporte comme en
 /// usage reel (indicateurs de chargement).
 const _latency = Duration(milliseconds: 400);
 
 class DemoVehicleRepository implements VehicleRepository {
-  DemoVehicleRepository() : _schedule = _initialSchedule();
+  DemoVehicleRepository()
+      : _schedules = {
+          demoVehicle.vin: _initialSchedule(start: '01:30', duration: 360),
+          demoSecondVehicle.vin: _initialSchedule(start: '22:00', duration: 480),
+        };
 
-  Map<String, dynamic> _schedule;
+  final Map<String, Map<String, dynamic>> _schedules;
+  final Set<String> _hvacOn = {};
+
+  bool _isSecond(Vehicle vehicle) => vehicle.vin == demoSecondVehicle.vin;
 
   @override
   Future<List<Vehicle>> fetchVehicles() async {
     await Future<void>.delayed(_latency);
-    return const [demoVehicle];
+    return const [demoVehicle, demoSecondVehicle];
   }
 
   @override
   Future<BatteryStatus> fetchBatteryStatus(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
+    if (_isSecond(vehicle)) {
+      return BatteryStatus(
+        batteryLevel: 72,
+        rangeKm: 280,
+        plugState: PlugState.unplugged,
+        chargeState: ChargeState.notCharging,
+        batteryTemperature: 16,
+        lastUpdated: DateTime.now().subtract(const Duration(minutes: 40)),
+        batteryCapacityKwh: 52,
+        availableEnergyKwh: 37.4,
+      );
+    }
     return BatteryStatus(
       batteryLevel: 46,
       rangeKm: 205,
@@ -52,23 +88,23 @@ class DemoVehicleRepository implements VehicleRepository {
   @override
   Future<BatteryHealth?> fetchBatteryHealth(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
-    return const BatteryHealth(percent: 96);
+    return BatteryHealth(percent: _isSecond(vehicle) ? 99 : 96);
   }
 
   @override
   Future<Cockpit> fetchCockpit(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
+    if (_isSecond(vehicle)) return const Cockpit(totalMileageKm: 3150);
     return const Cockpit(totalMileageKm: 12480, fuelQuantityLiters: 31, fuelAutonomyKm: 540);
   }
-
-  bool _hvacOn = false;
 
   @override
   Future<HvacStatus> fetchHvacStatus(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
+    final on = _hvacOn.contains(vehicle.vin);
     return HvacStatus(
-      isOn: _hvacOn,
-      internalTemperature: _hvacOn ? 20 : 14.5,
+      isOn: on,
+      internalTemperature: on ? 20 : 14.5,
       externalTemperature: 12,
       socThreshold: 15,
       lastUpdated: DateTime.now().subtract(const Duration(minutes: 5)),
@@ -79,44 +115,48 @@ class DemoVehicleRepository implements VehicleRepository {
   Future<VehicleLocation> fetchLocation(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
     return VehicleLocation(
-      latitude: 45.7578,
-      longitude: 4.8320,
+      latitude: _isSecond(vehicle) ? 45.7640 : 45.7578,
+      longitude: _isSecond(vehicle) ? 4.8357 : 4.8320,
       lastUpdated: DateTime.now().subtract(const Duration(minutes: 35)),
     );
   }
 
+  Map<String, dynamic> _scheduleOf(Vehicle vehicle) => _schedules[vehicle.vin] ?? _schedules[demoVehicle.vin]!;
+
   @override
   Future<VehicleSchedule> fetchVehicleSchedule(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
-    return VehicleSchedule.fromJson(_copy(_schedule));
+    return VehicleSchedule.fromJson(_copy(_scheduleOf(vehicle)));
   }
 
   @override
   Future<VehicleSchedule> updateVehicleSchedule(Vehicle vehicle, Map<String, dynamic> settings) async {
     await Future<void>.delayed(_latency);
-    _schedule = {..._copy(settings), 'lastSettingsUpdateTimestamp': DateTime.now().toUtc().toIso8601String()};
-    return VehicleSchedule.fromJson(_copy(_schedule));
+    final updated = {..._copy(settings), 'lastSettingsUpdateTimestamp': DateTime.now().toUtc().toIso8601String()};
+    _schedules[vehicle.vin] = updated;
+    return VehicleSchedule.fromJson(_copy(updated));
   }
 
   @override
   Future<void> sendAction(Vehicle vehicle, VehicleAction action) async {
     await Future<void>.delayed(_latency * 2);
-    if (action == VehicleAction.hvacStart) _hvacOn = true;
-    if (action == VehicleAction.hvacStop) _hvacOn = false;
+    if (action == VehicleAction.hvacStart) _hvacOn.add(vehicle.vin);
+    if (action == VehicleAction.hvacStop) _hvacOn.remove(vehicle.vin);
   }
 
   static Map<String, dynamic> _copy(Map<String, dynamic> json) =>
       jsonDecode(jsonEncode(json)) as Map<String, dynamic>;
 
   /// Meme forme que la reponse `ev/settings` d'un vrai vehicule : plage
-  /// unique 01:30 + 6 h, programme habituel actif, le 3e reserve a l'app.
-  static Map<String, dynamic> _initialSchedule() => {
+  /// unique ([start], [duration] minutes), programme habituel actif, le 3e
+  /// reserve a l'app.
+  static Map<String, dynamic> _initialSchedule({required String start, required int duration}) => {
         'lastSettingsUpdateTimestamp':
             DateTime.now().subtract(const Duration(days: 1)).toUtc().toIso8601String(),
         'delegatedActivated': false,
         'chargeModeRq': 'SCHEDULED',
-        'chargeTimeStart': '01:30',
-        'chargeDuration': 360,
+        'chargeTimeStart': start,
+        'chargeDuration': duration,
         'preconditioningTemperature': 21,
         'programs': [
           for (final (active, time, weekdaysOnly) in [
@@ -162,6 +202,7 @@ ChargePlanConfig demoChargePlanConfig() {
     dedicatedProgramIndex: 2,
     vehicleVin: demoVehicle.vin,
     vehicleModelCode: demoVehicle.modelCode,
+    vehicleAccountId: demoVehicle.accountId,
   );
 }
 

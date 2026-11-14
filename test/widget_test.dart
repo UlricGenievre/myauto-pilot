@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -145,7 +146,7 @@ void main() {
     expect(find.text('Se connecter'), findsOneWidget);
   });
 
-  testWidgets('demonstration : vehicule fictif sans pilotage, puis retour a la connexion', (tester) async {
+  testWidgets('demonstration : vehicules fictifs sans pilotage, changement de vehicule pilote, puis retour a la connexion', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -174,6 +175,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.textContaining('Non disponible en démonstration'), 200);
     expect(find.textContaining('Non disponible en démonstration'), findsOneWidget);
+    expect(find.text('Véhicule piloté : Renault Rafale.'), findsOneWidget);
+
+    // Second vehicule : non pilote, puis pilote a sa place.
+    await tester.tap(find.text('Renault Rafale'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Renault 5 E-Tech').last);
+    await tester.pumpAndSettle();
+    expect(find.text('VÉHICULE NON PILOTÉ'), findsOneWidget);
+    await tester.ensureVisible(find.text('Piloter Renault 5 E-Tech à la place'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Piloter Renault 5 E-Tech à la place'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Piloter'));
+    await tester.pumpAndSettle();
+    expect(find.text('VÉHICULE NON PILOTÉ'), findsNothing);
+    expect(find.text('MODÈLE NON ENCORE VÉRIFIÉ'), findsOneWidget);
+    // Fin de la barre "Pilotage regle pour..." avant de quitter.
+    ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).removeCurrentSnackBar();
+    await tester.pumpAndSettle();
 
     // Sortie : pas d'appel au logout du repository (il leverait ici).
     await tester.tap(find.byTooltip('Quitter la démonstration'));

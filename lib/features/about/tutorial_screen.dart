@@ -73,8 +73,8 @@ class _TutorialScreenState extends State<TutorialScreen> {
     _TutorialPage(
       illustration: _StepsIllustration(),
       title: 'Pour commencer',
-      body: 'Pas encore prêt ? Le mode démonstration, sur l\'écran de connexion, fait tout découvrir avec un '
-          'véhicule fictif, sans rien envoyer.',
+      body: 'Pas encore prêt ? Le mode démonstration, sur l\'écran de connexion, fait tout découvrir avec '
+          'deux véhicules fictifs, sans rien envoyer.',
     ),
   ];
 

@@ -155,7 +155,7 @@ class _DemoBanner extends StatelessWidget {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Démonstration : véhicule et données fictifs, rien n\'est envoyé.',
+              'Démonstration : véhicules et données fictifs, rien n\'est envoyé.',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
           ),

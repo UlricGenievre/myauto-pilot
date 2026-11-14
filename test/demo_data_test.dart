@@ -40,4 +40,21 @@ void main() {
     expect((await storage.load()).pushLeadMinutes, 60);
     expect((await DemoChargePlanStorage().load()).pushLeadMinutes, isNot(60));
   });
+
+  test('deux vehicules, sur deux comptes, chacun avec ses donnees', () async {
+    final repository = DemoVehicleRepository();
+    final vehicles = await repository.fetchVehicles();
+    expect(vehicles.map((v) => v.vin), [demoVehicle.vin, demoSecondVehicle.vin]);
+    expect(vehicles.map((v) => v.accountId).toSet(), hasLength(2));
+    expect(VehicleSupport.of(demoSecondVehicle.modelCode), VehicleSupport.compatible);
+    expect((await repository.fetchBatteryStatus(demoSecondVehicle)).batteryLevel,
+        isNot((await repository.fetchBatteryStatus(demoVehicle)).batteryLevel));
+
+    // Ecriture sur l'un sans effet sur l'autre.
+    final first = await repository.fetchVehicleSchedule(demoVehicle);
+    await repository.updateVehicleSchedule(
+        demoSecondVehicle, first.toUpdatedJson(chargeTimeStart: '12:30', chargeDurationMinutes: 120));
+    expect((await repository.fetchVehicleSchedule(demoSecondVehicle)).chargeWindowStart, '12:30');
+    expect((await repository.fetchVehicleSchedule(demoVehicle)).chargeWindowStart, first.chargeWindowStart);
+  });
 }
