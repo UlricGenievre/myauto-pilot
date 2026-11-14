@@ -11,6 +11,7 @@ import 'cards/battery_card.dart';
 import 'cards/calendar_card.dart';
 import 'cards/charge_thresholds_card.dart';
 import 'cards/dedicated_program_card.dart';
+import 'cards/piloted_vehicle_card.dart';
 import 'cards/push_settings_card.dart';
 import 'charge_plan_providers.dart';
 import 'write_test_card.dart';
@@ -32,29 +33,41 @@ class ChargePlanSettingsScreen extends ConsumerWidget {
         error: (error, _) => Center(child: Text('Erreur : $error', style: const TextStyle(color: AppColors.error))),
         data: (config) {
           final controller = ref.read(chargePlanConfigProvider.notifier);
+          // Vehicule non pilote : les reglages propres au vehicule (ceux du
+          // vehicule pilote) sont caches ; plages, agendas et seuils sont
+          // communs.
+          final notPiloted = ref.watch(showsOtherThanPilotedProvider);
           return ListView(
             // Marge de la barre de navigation Android : l'app s'affiche dessous
             // (plein ecran impose depuis Android 15).
             padding: EdgeInsets.fromLTRB(20, 8, 20, 24 + MediaQuery.paddingOf(context).bottom),
             children: [
+              if (notPiloted) ...[
+                const PilotedVehicleCard(),
+                const SizedBox(height: 16),
+              ],
               CalendarCard(config: config, controller: controller),
               const SizedBox(height: 16),
               PushSettingsCard(config: config, controller: controller),
               const SizedBox(height: 16),
               AgendasCard(config: config, controller: controller),
               const SizedBox(height: 16),
-              BatteryCard(config: config, controller: controller),
-              const SizedBox(height: 16),
+              if (!notPiloted) ...[
+                BatteryCard(config: config, controller: controller),
+                const SizedBox(height: 16),
+              ],
               ChargeThresholdsCard(config: config, controller: controller),
               const SizedBox(height: 16),
-              DedicatedProgramCard(config: config, controller: controller),
-              const SizedBox(height: 16),
+              if (!notPiloted) ...[
+                DedicatedProgramCard(config: config, controller: controller),
+                const SizedBox(height: 16),
+              ],
               if (!ref.watch(demoModeProvider)) ...[
                 const RenaultKeysCard(),
                 const SizedBox(height: 16),
               ],
               const AboutCard(),
-              if (devToolsEnabled) ...[
+              if (devToolsEnabled && !notPiloted) ...[
                 const SizedBox(height: 16),
                 WriteTestCard(config: config),
               ],

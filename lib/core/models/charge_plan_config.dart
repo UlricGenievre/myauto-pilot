@@ -356,6 +356,22 @@ class ChargePlanConfig {
         minChargePercent: clearMinCharge ? null : (minChargePercent ?? this.minChargePercent),
       );
 
+  /// Pilotage reporte sur un autre vehicule : envoi auto coupe, et oubli de
+  /// ce qui est propre a l'ancien (programme dedie, batterie, objectif
+  /// exceptionnel). Plages, agendas, seuils, delai d'envoi et mode securise
+  /// sont gardes.
+  ChargePlanConfig forVehicle({required String vin, String? modelCode}) => ChargePlanConfig(
+        calendar: calendar,
+        agendas: agendas,
+        activeAgendaId: activeAgendaId,
+        safeMode: safeMode,
+        vehicleVin: vin,
+        vehicleModelCode: modelCode,
+        pushLeadMinutes: pushLeadMinutes,
+        maxChargePercent: maxChargePercent,
+        minChargePercent: minChargePercent,
+      );
+
   Map<String, dynamic> toJson() => {
         'batteryCapacityKwh': batteryCapacityKwh,
         'chargePowerKw': chargePowerKw,

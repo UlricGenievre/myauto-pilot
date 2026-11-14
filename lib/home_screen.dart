@@ -60,7 +60,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       next.whenData((vehicles) {
         final selected = ref.read(selectedVehicleProvider);
         if (selected == null && vehicles.isNotEmpty) {
-          ref.read(selectedVehicleProvider.notifier).select(vehicles.first);
+          // Le vehicule pilote d'abord, s'il est dans la liste.
+          final vin = ref.read(chargePlanConfigProvider).value?.vehicleVin;
+          final piloted = vehicles.where((v) => v.vin == vin);
+          ref.read(selectedVehicleProvider.notifier).select(piloted.isEmpty ? vehicles.first : piloted.first);
         }
         _syncPilotedModelCode(vehicles);
       });

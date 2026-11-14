@@ -12,6 +12,7 @@ import '../../auth/auth_controller.dart';
 import '../../vehicle/vehicle_providers.dart';
 import '../charge_plan_pickers.dart';
 import '../charge_plan_providers.dart';
+import 'piloted_vehicle_card.dart';
 
 /// Boutons du pilotage (envoi auto, mode securise) et etat d'execution :
 /// prochain envoi, confirmation en attente, dernier resultat. L'aide ("?")
@@ -84,6 +85,11 @@ class _AutoPilotCardState extends ConsumerState<AutoPilotCard> {
               ),
             ],
           ),
+          // Plusieurs vehicules : rappel de celui que l'envoi auto pilote.
+          if ((ref.watch(vehiclesProvider).value?.length ?? 0) > 1 && pilotedVehicleName(ref) != null) ...[
+            const SizedBox(height: 8),
+            Text('Véhicule piloté : ${pilotedVehicleName(ref)}.', style: hintStyle),
+          ],
           if (blocker != null) ...[
             const SizedBox(height: 8),
             Text(blocker, style: hintStyle),

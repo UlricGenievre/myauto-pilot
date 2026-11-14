@@ -8,6 +8,7 @@ import '../schedule/vehicle_schedule_cards.dart';
 import 'cards/auto_pilot_card.dart';
 import 'cards/immediate_charge_card.dart';
 import 'cards/one_off_card.dart';
+import 'cards/piloted_vehicle_card.dart';
 import 'cards/preview_card.dart';
 import 'cards/vehicle_support_card.dart';
 import 'charge_plan_providers.dart';
@@ -35,17 +36,24 @@ class PilotScreen extends ConsumerWidget {
         error: (error, _) => Center(child: Text('Erreur : $error', style: const TextStyle(color: AppColors.error))),
         data: (config) {
           final controller = ref.read(chargePlanConfigProvider.notifier);
+          // Vehicule non pilote : rien de ce qui se calcule avec le
+          // parametrage (celui d'un autre vehicule), lecture de la voiture seule.
+          final notPiloted = ref.watch(showsOtherThanPilotedProvider);
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
             children: [
-              const VehicleSupportCard(),
-              PreviewCard(config: config),
-              const SizedBox(height: 16),
-              AutoPilotCard(config: config, controller: controller),
-              const SizedBox(height: 16),
-              ImmediateChargeCard(config: config, controller: controller),
-              const SizedBox(height: 16),
-              OneOffCard(config: config, controller: controller),
+              if (notPiloted)
+                const PilotedVehicleCard()
+              else ...[
+                const VehicleSupportCard(),
+                PreviewCard(config: config),
+                const SizedBox(height: 16),
+                AutoPilotCard(config: config, controller: controller),
+                const SizedBox(height: 16),
+                ImmediateChargeCard(config: config, controller: controller),
+                const SizedBox(height: 16),
+                OneOffCard(config: config, controller: controller),
+              ],
               const SizedBox(height: 28),
               const Padding(
                 padding: EdgeInsets.only(left: 4, bottom: 12),
