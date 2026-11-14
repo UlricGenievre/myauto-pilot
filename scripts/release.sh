@@ -29,7 +29,11 @@ git fetch --quiet --tags origin
 ! gh release view "$tag" > /dev/null 2>&1 || die "une release $tag existe deja"
 [[ -f android/key.properties ]] || die "android/key.properties absent : l'APK serait signe avec la cle de debug"
 
-notes=$(awk -v v="## $version" '$0 == v {on = 1; next} on && /^## / {exit} on' CHANGELOG.md)
+# Section du CHANGELOG, lignes de suite rejointes : GitHub affiche chaque
+# retour a la ligne d'une release, le texte coupe a 72 colonnes y serait
+# hache en plein milieu des phrases.
+notes=$(awk -v v="## $version" '$0 == v {on = 1; next} on && /^## / {exit} on' CHANGELOG.md \
+  | awk 'NR > 1 && /^ +[^ -]/ {sub(/^ +/, ""); line = line " " $0; next} NR > 1 {print line} {line = $0} END {print line}')
 [[ -n "${notes//[[:space:]]/}" ]] || die "pas de section \"## $version\" dans CHANGELOG.md"
 
 echo "Release $tag : build de l'APK signe..."
