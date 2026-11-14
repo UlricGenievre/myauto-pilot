@@ -142,14 +142,30 @@ class KamereonClient {
       query: {'country': ApiConfig.country},
     );
 
-    final accounts = data['accounts'] as List<dynamic>?;
-    final accountId = accounts?.isNotEmpty == true
-        ? accounts!.first['accountId'] as String?
-        : null;
-    if (accountId == null) {
+    final accountIds = [
+      for (final account in data['accounts'] as List<dynamic>? ?? const [])
+        if ((account as Map<String, dynamic>)['accountId'] is String) account['accountId'] as String,
+    ];
+    if (accountIds.isEmpty) {
       throw const ApiException('Aucun compte Kamereon trouvé pour ce profil.');
     }
-    return accountId;
+    if (accountIds.length == 1) return accountIds.first;
+
+    // Un profil peut avoir plusieurs comptes (MyRenault, MyDacia, ancien
+    // compte commercial...) et le premier n'a pas forcement de vehicule :
+    // garder le premier qui en a un, comme l'integration Home Assistant de
+    // renault-api. A defaut, le premier compte.
+    for (final accountId in accountIds) {
+      try {
+        final vehicles = await fetchVehicles(jwt: jwt, accountId: accountId);
+        if (vehicles.isNotEmpty) return accountId;
+      } on ApiException catch (e) {
+        // Cle refusee : a remonter (remplacement automatique des cles).
+        if (e.keyRejected) rethrow;
+        // Compte illisible (autre marque, inactif...) : suivant.
+      }
+    }
+    return accountIds.first;
   }
 
   Future<List<Vehicle>> fetchVehicles({required String jwt, required String accountId}) async {
