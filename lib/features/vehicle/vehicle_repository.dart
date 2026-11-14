@@ -9,7 +9,8 @@ import '../../core/models/vehicle_schedule.dart';
 import '../auth/auth_repository.dart';
 
 /// Facade au-dessus de [KamereonClient] qui porte la session courante
-/// (jwt + accountId), pour eviter de la repasser a chaque appel.
+/// (jwt + compte par defaut), pour eviter de la repasser a chaque appel.
+/// Chaque appel sur un vehicule passe par le compte de ce vehicule.
 class VehicleRepository {
   VehicleRepository({
     required this._session,
@@ -21,30 +22,33 @@ class VehicleRepository {
   final AuthSession _session;
   final KamereonClient _client;
 
-  Future<List<Vehicle>> fetchVehicles() =>
-      _client.fetchVehicles(jwt: _session.jwt, accountId: _session.accountId);
+  String _account(Vehicle vehicle) => vehicle.accountId ?? _session.accountId;
 
-  Future<BatteryStatus> fetchBatteryStatus(String vin) =>
-      _client.fetchBatteryStatus(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
+  /// Vehicules de tous les comptes du profil.
+  Future<List<Vehicle>> fetchVehicles() => _client.fetchAllVehicles(
+      jwt: _session.jwt, personId: _session.personId, defaultAccountId: _session.accountId);
+
+  Future<BatteryStatus> fetchBatteryStatus(Vehicle vehicle) =>
+      _client.fetchBatteryStatus(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin);
 
   Future<BatteryHealth?> fetchBatteryHealth(Vehicle vehicle) => _client.fetchBatteryHealth(
-      jwt: _session.jwt, accountId: _session.accountId, vin: vehicle.vin, deliveryDate: vehicle.deliveryDate);
+      jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin, deliveryDate: vehicle.deliveryDate);
 
-  Future<Cockpit> fetchCockpit(String vin) =>
-      _client.fetchCockpit(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
+  Future<Cockpit> fetchCockpit(Vehicle vehicle) =>
+      _client.fetchCockpit(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin);
 
-  Future<HvacStatus> fetchHvacStatus(String vin) =>
-      _client.fetchHvacStatus(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
+  Future<HvacStatus> fetchHvacStatus(Vehicle vehicle) =>
+      _client.fetchHvacStatus(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin);
 
-  Future<VehicleLocation> fetchLocation(String vin) =>
-      _client.fetchLocation(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
+  Future<VehicleLocation> fetchLocation(Vehicle vehicle) =>
+      _client.fetchLocation(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin);
 
-  Future<VehicleSchedule> fetchVehicleSchedule(String vin) =>
-      _client.fetchVehicleSchedule(jwt: _session.jwt, accountId: _session.accountId, vin: vin);
+  Future<VehicleSchedule> fetchVehicleSchedule(Vehicle vehicle) =>
+      _client.fetchVehicleSchedule(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin);
 
-  Future<VehicleSchedule> updateVehicleSchedule(String vin, Map<String, dynamic> settings) =>
-      _client.updateVehicleSchedule(jwt: _session.jwt, accountId: _session.accountId, vin: vin, settings: settings);
+  Future<VehicleSchedule> updateVehicleSchedule(Vehicle vehicle, Map<String, dynamic> settings) => _client
+      .updateVehicleSchedule(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin, settings: settings);
 
-  Future<void> sendAction(String vin, VehicleAction action) =>
-      _client.sendAction(jwt: _session.jwt, accountId: _session.accountId, vin: vin, action: action);
+  Future<void> sendAction(Vehicle vehicle, VehicleAction action) =>
+      _client.sendAction(jwt: _session.jwt, accountId: _account(vehicle), vin: vehicle.vin, action: action);
 }

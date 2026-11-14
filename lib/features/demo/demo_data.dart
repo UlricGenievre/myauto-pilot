@@ -35,7 +35,7 @@ class DemoVehicleRepository implements VehicleRepository {
   }
 
   @override
-  Future<BatteryStatus> fetchBatteryStatus(String vin) async {
+  Future<BatteryStatus> fetchBatteryStatus(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
     return BatteryStatus(
       batteryLevel: 46,
@@ -56,7 +56,7 @@ class DemoVehicleRepository implements VehicleRepository {
   }
 
   @override
-  Future<Cockpit> fetchCockpit(String vin) async {
+  Future<Cockpit> fetchCockpit(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
     return const Cockpit(totalMileageKm: 12480, fuelQuantityLiters: 31, fuelAutonomyKm: 540);
   }
@@ -64,7 +64,7 @@ class DemoVehicleRepository implements VehicleRepository {
   bool _hvacOn = false;
 
   @override
-  Future<HvacStatus> fetchHvacStatus(String vin) async {
+  Future<HvacStatus> fetchHvacStatus(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
     return HvacStatus(
       isOn: _hvacOn,
@@ -76,7 +76,7 @@ class DemoVehicleRepository implements VehicleRepository {
   }
 
   @override
-  Future<VehicleLocation> fetchLocation(String vin) async {
+  Future<VehicleLocation> fetchLocation(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
     return VehicleLocation(
       latitude: 45.7578,
@@ -86,20 +86,20 @@ class DemoVehicleRepository implements VehicleRepository {
   }
 
   @override
-  Future<VehicleSchedule> fetchVehicleSchedule(String vin) async {
+  Future<VehicleSchedule> fetchVehicleSchedule(Vehicle vehicle) async {
     await Future<void>.delayed(_latency);
     return VehicleSchedule.fromJson(_copy(_schedule));
   }
 
   @override
-  Future<VehicleSchedule> updateVehicleSchedule(String vin, Map<String, dynamic> settings) async {
+  Future<VehicleSchedule> updateVehicleSchedule(Vehicle vehicle, Map<String, dynamic> settings) async {
     await Future<void>.delayed(_latency);
     _schedule = {..._copy(settings), 'lastSettingsUpdateTimestamp': DateTime.now().toUtc().toIso8601String()};
     return VehicleSchedule.fromJson(_copy(_schedule));
   }
 
   @override
-  Future<void> sendAction(String vin, VehicleAction action) async {
+  Future<void> sendAction(Vehicle vehicle, VehicleAction action) async {
     await Future<void>.delayed(_latency * 2);
     if (action == VehicleAction.hvacStart) _hvacOn = true;
     if (action == VehicleAction.hvacStop) _hvacOn = false;

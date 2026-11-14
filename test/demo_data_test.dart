@@ -13,7 +13,7 @@ void main() {
 
   test('ecriture simulee : relue ensuite, sans modifier le reste', () async {
     final repository = DemoVehicleRepository();
-    final before = await repository.fetchVehicleSchedule(demoVehicle.vin);
+    final before = await repository.fetchVehicleSchedule(demoVehicle);
     expect(before.programs, hasLength(3));
 
     final updated = before.toUpdatedJson(
@@ -23,9 +23,9 @@ void main() {
       departureTime: '07:30',
       programActive: true,
     );
-    await repository.updateVehicleSchedule(demoVehicle.vin, updated);
+    await repository.updateVehicleSchedule(demoVehicle, updated);
 
-    final after = await repository.fetchVehicleSchedule(demoVehicle.vin);
+    final after = await repository.fetchVehicleSchedule(demoVehicle);
     expect(after.chargeWindowStart, '12:30');
     expect(after.chargeWindowDurationMinutes, 120);
     expect(after.programs[2].isActive, isTrue);

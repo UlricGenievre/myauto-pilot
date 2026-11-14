@@ -212,11 +212,15 @@ Future<void> _initNotifications() async {
   await _androidNotifications?.createNotificationChannel(_channel);
 }
 
-ChargePilot _createPilot() => ChargePilot(
-      store: ChargePlanStorage(),
-      platform: _AndroidPilotPlatform(),
-      gateway: () => KamereonPilotGateway.open(onKeysEvent: showPilotInfo),
-    );
+ChargePilot _createPilot() {
+  final store = ChargePlanStorage();
+  return ChargePilot(
+    store: store,
+    platform: _AndroidPilotPlatform(),
+    gateway: () async =>
+        KamereonPilotGateway.open(accountId: (await store.load()).vehicleAccountId, onKeysEvent: showPilotInfo),
+  );
+}
 
 // --- Plateforme ----------------------------------------------------------------
 

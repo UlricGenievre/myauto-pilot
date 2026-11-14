@@ -11,7 +11,7 @@ final batteryStatusProvider = FutureProvider.autoDispose<BatteryStatus?>((ref) a
   final repository = ref.watch(vehicleRepositoryProvider);
   final vehicle = ref.watch(selectedVehicleProvider);
   if (repository == null || vehicle == null) return null;
-  return repository.fetchBatteryStatus(vehicle.vin);
+  return repository.fetchBatteryStatus(vehicle);
 });
 
 /// Sante de la batterie : evolue tres lentement, donc lue une fois par
@@ -33,7 +33,7 @@ final cockpitProvider = FutureProvider.autoDispose<Cockpit?>((ref) async {
   final repository = ref.watch(vehicleRepositoryProvider);
   final vehicle = ref.watch(selectedVehicleProvider);
   if (repository == null || vehicle == null) return null;
-  return repository.fetchCockpit(vehicle.vin);
+  return repository.fetchCockpit(vehicle);
 });
 
 /// Etat de la climatisation. Erreur (endpoint absent sur certains modeles)
@@ -43,7 +43,7 @@ final hvacStatusProvider = FutureProvider.autoDispose<HvacStatus?>((ref) async {
   final vehicle = ref.watch(selectedVehicleProvider);
   if (repository == null || vehicle == null) return null;
   try {
-    return await repository.fetchHvacStatus(vehicle.vin);
+    return await repository.fetchHvacStatus(vehicle);
   } on Object {
     return null;
   }

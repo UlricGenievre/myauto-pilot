@@ -7,5 +7,5 @@ final vehicleLocationProvider = FutureProvider.autoDispose<VehicleLocation?>((re
   final repository = ref.watch(vehicleRepositoryProvider);
   final vehicle = ref.watch(selectedVehicleProvider);
   if (repository == null || vehicle == null) return null;
-  return repository.fetchLocation(vehicle.vin);
+  return repository.fetchLocation(vehicle);
 });

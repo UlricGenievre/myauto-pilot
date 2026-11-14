@@ -121,7 +121,8 @@ class _AutoPilotCardState extends ConsumerState<AutoPilotCard> {
       }
       if (!await exactAlarmsAllowed() && mounted) await _askExactAlarms(context);
     }
-    await widget.controller.edit((c) => c.copyWith(enabled: on, vehicleVin: vin, vehicleModelCode: vehicle?.modelCode));
+    await widget.controller.edit((c) => c.copyWith(
+        enabled: on, vehicleVin: vin, vehicleModelCode: vehicle?.modelCode, vehicleAccountId: vehicle?.accountId));
     await refreshPilot(ref.invalidate);
   }
 }

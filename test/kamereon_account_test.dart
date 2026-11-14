@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:myauto_pilot/core/api/api_config.dart';
+import 'package:myauto_pilot/core/api/api_exception.dart';
 import 'package:myauto_pilot/core/api/kamereon_client.dart';
 import 'package:myauto_pilot/core/api/renault_api_settings.dart';
 
@@ -60,5 +61,31 @@ void main() {
       '/commerce/v1/accounts/a/vehicles': {'vehicleLinks': <Object>[]},
     });
     expect(await client.fetchAccountId(jwt: 'j', personId: 'p'), 'a');
+  });
+
+  test('vehicules de tous les comptes, chacun avec son compte, sans doublon', () async {
+    final client = clientWith({
+      '/commerce/v1/persons/p': person(['session', 'autre', 'illisible', 'doublon']),
+      '/commerce/v1/accounts/session/vehicles': withVehicle,
+      '/commerce/v1/accounts/autre/vehicles': {
+        'vehicleLinks': [
+          {'vin': 'VF1R5', 'vehicleDetails': {'vin': 'VF1R5'}},
+        ],
+      },
+      '/commerce/v1/accounts/doublon/vehicles': withVehicle,
+    });
+    final vehicles = await client.fetchAllVehicles(jwt: 'j', personId: 'p', defaultAccountId: 'session');
+    expect([for (final v in vehicles) '${v.vin}@${v.accountId}'], ['VF1TEST@session', 'VF1R5@autre']);
+  });
+
+  test('liste des comptes illisible : vehicules du compte de la session', () async {
+    final client = clientWith({'/commerce/v1/accounts/session/vehicles': withVehicle});
+    final vehicles = await client.fetchAllVehicles(jwt: 'j', personId: 'p', defaultAccountId: 'session');
+    expect(vehicles.map((v) => v.vin), ['VF1TEST']);
+  });
+
+  test('compte de la session illisible : erreur', () async {
+    final client = clientWith({'/commerce/v1/persons/p': person(['session'])});
+    expect(client.fetchAllVehicles(jwt: 'j', personId: 'p', defaultAccountId: 'session'), throwsA(isA<ApiException>()));
   });
 }

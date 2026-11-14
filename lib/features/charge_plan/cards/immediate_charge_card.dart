@@ -6,6 +6,7 @@ import '../../../core/charge_plan/charge_planner.dart';
 import '../../../core/charge_plan/pilot_state.dart';
 import '../../../core/models/battery_status.dart';
 import '../../../core/models/charge_plan_config.dart';
+import '../../../core/models/vehicle.dart';
 import '../../../core/models/vehicle_support.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/date_formatting.dart';
@@ -142,17 +143,19 @@ class _ImmediateChargeCardState extends ConsumerState<ImmediateChargeCard> {
       TextButton.icon(
         icon: const Icon(Icons.bolt_rounded, color: AppColors.accent),
         label: const Text('Charger maintenant'),
-        onPressed: blocker != null || plan == null ? null : () => _start(vehicle?.vin, vehicle?.modelCode, soc!, plan),
+        onPressed: blocker != null || plan == null ? null : () => _start(vehicle, soc!, plan),
       ),
     ];
   }
 
-  Future<void> _start(String? vin, String? modelCode, int soc, ImmediateChargePlan plan) async {
+  Future<void> _start(Vehicle? vehicle, int soc, ImmediateChargePlan plan) async {
     if (widget.config.effectiveSafeMode && !await _confirm(soc, plan)) return;
     // Vehicule a ecrire : celui du pilotage, renseigne ici s'il n'a jamais
     // ete active (les reveils tournent sans "vehicule selectionne").
-    if (vin != null && (widget.config.vehicleVin != vin || widget.config.vehicleModelCode != modelCode)) {
-      await widget.controller.edit((c) => c.copyWith(vehicleVin: vin, vehicleModelCode: modelCode));
+    if (vehicle != null &&
+        (widget.config.vehicleVin != vehicle.vin || widget.config.vehicleModelCode != vehicle.modelCode)) {
+      await widget.controller.edit((c) => c.copyWith(
+          vehicleVin: vehicle.vin, vehicleModelCode: vehicle.modelCode, vehicleAccountId: vehicle.accountId));
     }
     await requestPilotPermissions();
     await startImmediateCharge(_target);

@@ -246,6 +246,7 @@ class ChargePlanConfig {
     this.safeMode = true,
     this.vehicleVin,
     this.vehicleModelCode,
+    this.vehicleAccountId,
     this.pushLeadMinutes = defaultPushLeadMinutes,
     this.maxChargePercent,
     this.minChargePercent,
@@ -281,6 +282,10 @@ class ChargePlanConfig {
   /// Code modele du vehicule pilote : determine ce que l'app peut y ecrire.
   final String? vehicleModelCode;
 
+  /// Compte Kamereon du vehicule pilote (null : compte de la session), pour
+  /// les reveils qui tournent sans liste des vehicules.
+  final String? vehicleAccountId;
+
   VehicleSupport get vehicleSupport => VehicleSupport.of(vehicleModelCode);
 
   /// Mode securise effectif : choisi par l'utilisateur, ou impose tant que
@@ -304,7 +309,8 @@ class ChargePlanConfig {
   /// l'autre, contrairement a `String.hashCode`.
   String get fingerprint {
     var hash = 0x811c9dc5;
-    for (final byte in utf8.encode(jsonEncode(toJson()))) {
+    // Sans le compte : le renseigner ne change rien a ce qui est envoye.
+    for (final byte in utf8.encode(jsonEncode(toJson()..remove('vehicleAccountId')))) {
       hash = ((hash ^ byte) * 0x01000193) & 0xffffffff;
     }
     return hash.toRadixString(16).padLeft(8, '0');
@@ -333,6 +339,7 @@ class ChargePlanConfig {
     bool? safeMode,
     String? vehicleVin,
     String? vehicleModelCode,
+    String? vehicleAccountId,
     int? pushLeadMinutes,
     int? maxChargePercent,
     bool clearMaxCharge = false,
@@ -351,6 +358,7 @@ class ChargePlanConfig {
         safeMode: safeMode ?? this.safeMode,
         vehicleVin: vehicleVin ?? this.vehicleVin,
         vehicleModelCode: vehicleModelCode ?? this.vehicleModelCode,
+        vehicleAccountId: vehicleAccountId ?? this.vehicleAccountId,
         pushLeadMinutes: pushLeadMinutes ?? this.pushLeadMinutes,
         maxChargePercent: clearMaxCharge ? null : (maxChargePercent ?? this.maxChargePercent),
         minChargePercent: clearMinCharge ? null : (minChargePercent ?? this.minChargePercent),
@@ -360,13 +368,14 @@ class ChargePlanConfig {
   /// ce qui est propre a l'ancien (programme dedie, batterie, objectif
   /// exceptionnel). Plages, agendas, seuils, delai d'envoi et mode securise
   /// sont gardes.
-  ChargePlanConfig forVehicle({required String vin, String? modelCode}) => ChargePlanConfig(
+  ChargePlanConfig forVehicle({required String vin, String? modelCode, String? accountId}) => ChargePlanConfig(
         calendar: calendar,
         agendas: agendas,
         activeAgendaId: activeAgendaId,
         safeMode: safeMode,
         vehicleVin: vin,
         vehicleModelCode: modelCode,
+        vehicleAccountId: accountId,
         pushLeadMinutes: pushLeadMinutes,
         maxChargePercent: maxChargePercent,
         minChargePercent: minChargePercent,
@@ -384,6 +393,7 @@ class ChargePlanConfig {
         'safeMode': safeMode,
         'vehicleVin': vehicleVin,
         'vehicleModelCode': vehicleModelCode,
+        'vehicleAccountId': vehicleAccountId,
         'pushLeadMinutes': pushLeadMinutes,
         'maxChargePercent': maxChargePercent,
         'minChargePercent': minChargePercent,
@@ -405,6 +415,7 @@ class ChargePlanConfig {
         safeMode: json['safeMode'] as bool? ?? true,
         vehicleVin: json['vehicleVin'] as String?,
         vehicleModelCode: json['vehicleModelCode'] as String?,
+        vehicleAccountId: json['vehicleAccountId'] as String?,
         pushLeadMinutes: json['pushLeadMinutes'] as int? ?? defaultPushLeadMinutes,
         maxChargePercent: json['maxChargePercent'] as int?,
         minChargePercent: json['minChargePercent'] as int?,

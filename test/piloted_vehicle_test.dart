@@ -9,7 +9,7 @@ import 'package:myauto_pilot/features/charge_plan/charge_plan_providers.dart';
 import 'package:myauto_pilot/features/demo/demo_data.dart';
 import 'package:myauto_pilot/features/vehicle/vehicle_providers.dart';
 
-const other = Vehicle(vin: 'VF1AUTRE', brand: 'Renault', model: 'R5', modelCode: 'R5E1VE');
+const other = Vehicle(vin: 'VF1AUTRE', brand: 'Renault', model: 'R5', modelCode: 'R5E1VE', accountId: 'compte2');
 
 /// Conteneur sans reseau ni reveils (mode demonstration), sur [storage].
 ProviderContainer container(ChargePlanStorage storage) {
@@ -24,8 +24,9 @@ ProviderContainer container(ChargePlanStorage storage) {
 void main() {
   test('forVehicle : envoi auto coupe, reglages du vehicule oublies, le reste garde', () {
     final config = demoChargePlanConfig().copyWith(enabled: true, maxChargePercent: 80, pushLeadMinutes: 120);
-    final next = config.forVehicle(vin: other.vin, modelCode: other.modelCode);
+    final next = config.forVehicle(vin: other.vin, modelCode: other.modelCode, accountId: other.accountId);
     expect(next.vehicleVin, other.vin);
+    expect(next.vehicleAccountId, 'compte2');
     expect(next.vehicleModelCode, other.modelCode);
     expect(next.enabled, isFalse);
     expect(next.dedicatedProgramIndex, isNull);
@@ -49,6 +50,7 @@ void main() {
 
     expect(await c.read(chargePlanConfigProvider.notifier).switchVehicle(other), isNull);
     expect((await storage.load()).vehicleVin, other.vin);
+    expect((await storage.load()).vehicleAccountId, 'compte2');
     expect((await storage.loadState()).lastResult, isNull);
     expect(c.read(showsOtherThanPilotedProvider), isFalse);
   });
@@ -81,5 +83,12 @@ void main() {
     final saved = await storage.load();
     expect(saved.vehicleVin, other.vin);
     expect(saved.vehicleModelCode, other.modelCode);
+    expect(saved.vehicleAccountId, 'compte2');
+  });
+
+  test('compte du vehicule pilote : hors empreinte du parametrage', () {
+    final config = demoChargePlanConfig();
+    expect(config.copyWith(vehicleAccountId: 'compte2').fingerprint, config.fingerprint);
+    expect(ChargePlanConfig.fromJson(config.copyWith(vehicleAccountId: 'compte2').toJson()).vehicleAccountId, 'compte2');
   });
 }

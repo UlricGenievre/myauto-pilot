@@ -134,18 +134,23 @@ class KamereonClient {
   /// La cle d'API est posee par [_useCurrentServerAndKey].
   Options _authHeaders(String jwt) => Options(headers: {'x-gigya-id_token': jwt});
 
-  /// Recupere le/les comptes Kamereon lies a la personne authentifiee.
-  Future<String> fetchAccountId({required String jwt, required String personId}) async {
+  /// Comptes Kamereon lies a la personne authentifiee (MyRenault, MyDacia,
+  /// ancien compte commercial...), dans l'ordre de Renault.
+  Future<List<String>> fetchAccountIds({required String jwt, required String personId}) async {
     final data = await _get(
       '/commerce/v1/persons/$personId',
       jwt: jwt,
       query: {'country': ApiConfig.country},
     );
-
-    final accountIds = [
+    return [
       for (final account in data['accounts'] as List<dynamic>? ?? const [])
         if ((account as Map<String, dynamic>)['accountId'] is String) account['accountId'] as String,
     ];
+  }
+
+  /// Compte par defaut de la session.
+  Future<String> fetchAccountId({required String jwt, required String personId}) async {
+    final accountIds = await fetchAccountIds(jwt: jwt, personId: personId);
     if (accountIds.isEmpty) {
       throw const ApiException('Aucun compte Kamereon trouvé pour ce profil.');
     }
@@ -168,6 +173,37 @@ class KamereonClient {
     return accountIds.first;
   }
 
+  /// Vehicules de tous les comptes du profil, chacun avec son compte (cf.
+  /// [Vehicle.accountId]). Le compte de la session ([defaultAccountId]) est
+  /// lu en premier et ses erreurs remontent ; celles des autres comptes sont
+  /// ignorees (sauf cle refusee). Un VIN present sur plusieurs comptes
+  /// n'apparait qu'une fois, sous le premier.
+  Future<List<Vehicle>> fetchAllVehicles({
+    required String jwt,
+    required String personId,
+    required String defaultAccountId,
+  }) async {
+    final vehicles = await fetchVehicles(jwt: jwt, accountId: defaultAccountId);
+    final List<String> accountIds;
+    try {
+      accountIds = await fetchAccountIds(jwt: jwt, personId: personId);
+    } on ApiException catch (e) {
+      if (e.keyRejected) rethrow;
+      return vehicles;
+    }
+    final seen = {for (final vehicle in vehicles) vehicle.vin};
+    for (final accountId in accountIds.where((id) => id != defaultAccountId)) {
+      try {
+        for (final vehicle in await fetchVehicles(jwt: jwt, accountId: accountId)) {
+          if (seen.add(vehicle.vin)) vehicles.add(vehicle);
+        }
+      } on ApiException catch (e) {
+        if (e.keyRejected) rethrow;
+      }
+    }
+    return vehicles;
+  }
+
   Future<List<Vehicle>> fetchVehicles({required String jwt, required String accountId}) async {
     final data = await _get(
       '/commerce/v1/accounts/$accountId/vehicles',
@@ -177,7 +213,8 @@ class KamereonClient {
 
     final items = data['vehicleLinks'] as List<dynamic>? ?? const [];
     return items
-        .map((e) => Vehicle.fromJson((e as Map<String, dynamic>)['vehicleDetails'] as Map<String, dynamic>? ?? e))
+        .map((e) => Vehicle.fromJson((e as Map<String, dynamic>)['vehicleDetails'] as Map<String, dynamic>? ?? e)
+            .withAccount(accountId))
         .toList();
   }
 

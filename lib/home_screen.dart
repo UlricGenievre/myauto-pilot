@@ -38,14 +38,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
 
   /// Tient a jour le code modele du vehicule pilote (il determine ce que
-  /// l'app peut y ecrire), y compris pour un parametrage enregistre sans.
+  /// l'app peut y ecrire) et son compte (utilise par les reveils), y compris
+  /// pour un parametrage enregistre sans.
   void _syncPilotedModelCode(List<Vehicle> vehicles) {
     final config = ref.read(chargePlanConfigProvider).value;
     final vin = config?.vehicleVin;
     if (config == null || vin == null) return;
     for (final vehicle in vehicles) {
-      if (vehicle.vin == vin && vehicle.modelCode != null && vehicle.modelCode != config.vehicleModelCode) {
-        ref.read(chargePlanConfigProvider.notifier).edit((c) => c.copyWith(vehicleModelCode: vehicle.modelCode));
+      if (vehicle.vin != vin) continue;
+      final modelChanged = vehicle.modelCode != null && vehicle.modelCode != config.vehicleModelCode;
+      final accountChanged = vehicle.accountId != null && vehicle.accountId != config.vehicleAccountId;
+      if (modelChanged || accountChanged) {
+        ref.read(chargePlanConfigProvider.notifier).edit((c) => c.copyWith(
+            vehicleModelCode: vehicle.modelCode ?? c.vehicleModelCode, vehicleAccountId: vehicle.accountId));
       }
     }
   }

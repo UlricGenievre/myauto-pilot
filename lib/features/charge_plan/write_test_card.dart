@@ -91,7 +91,7 @@ class _WriteTestCardState extends ConsumerState<WriteTestCard> {
     if (repository == null || vehicle == null) return;
     setState(() => _busy = true);
     try {
-      final schedule = await repository.fetchVehicleSchedule(vehicle.vin);
+      final schedule = await repository.fetchVehicleSchedule(vehicle);
       DevLog.send('read', {'schedule': schedule.raw});
       if (!mounted) return;
       setState(() => _results.add(_WriteResult(
@@ -214,15 +214,15 @@ class _WriteTestCardState extends ConsumerState<WriteTestCard> {
     setState(() => _busy = true);
     try {
       // Toujours repartir d'une lecture fraiche (pattern GET -> mutation -> POST).
-      final current = await repository.fetchVehicleSchedule(vehicle.vin);
+      final current = await repository.fetchVehicleSchedule(vehicle);
       final sent = change(current);
       final stopwatch = Stopwatch()..start();
-      var reread = await repository.updateVehicleSchedule(vehicle.vin, sent);
+      var reread = await repository.updateVehicleSchedule(vehicle, sent);
       var polls = 1;
       while (reread.lastUpdate == current.lastUpdate && stopwatch.elapsed < _pollTimeout) {
         if (mounted) setState(() => _status = 'Attente de la prise en compte... ${stopwatch.elapsed.inSeconds} s');
         await Future<void>.delayed(_pollInterval);
-        reread = await repository.fetchVehicleSchedule(vehicle.vin);
+        reread = await repository.fetchVehicleSchedule(vehicle);
         polls++;
       }
       final applied = reread.lastUpdate != current.lastUpdate;

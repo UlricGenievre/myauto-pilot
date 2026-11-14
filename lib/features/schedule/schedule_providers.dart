@@ -7,5 +7,5 @@ final vehicleScheduleProvider = FutureProvider.autoDispose<VehicleSchedule?>((re
   final repository = ref.watch(vehicleRepositoryProvider);
   final vehicle = ref.watch(selectedVehicleProvider);
   if (repository == null || vehicle == null) return null;
-  return repository.fetchVehicleSchedule(vehicle.vin);
+  return repository.fetchVehicleSchedule(vehicle);
 });

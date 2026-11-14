@@ -42,7 +42,8 @@ class ChargePlanConfigController extends AsyncNotifier<ChargePlanConfig> {
     var updated = change(current);
     final selected = ref.read(selectedVehicleProvider);
     if (updated.vehicleVin == null && selected != null) {
-      updated = updated.copyWith(vehicleVin: selected.vin, vehicleModelCode: selected.modelCode);
+      updated = updated.copyWith(
+          vehicleVin: selected.vin, vehicleModelCode: selected.modelCode, vehicleAccountId: selected.accountId);
     }
     state = AsyncData(updated);
     await ref.read(chargePlanStorageProvider).save(updated);
@@ -66,7 +67,7 @@ class ChargePlanConfigController extends AsyncNotifier<ChargePlanConfig> {
       return 'Envoi en cours à la voiture : réessayez dans un instant.';
     }
     final current = state.value ?? const ChargePlanConfig();
-    final updated = current.forVehicle(vin: vehicle.vin, modelCode: vehicle.modelCode);
+    final updated = current.forVehicle(vin: vehicle.vin, modelCode: vehicle.modelCode, accountId: vehicle.accountId);
     state = AsyncData(updated);
     await storage.save(updated);
     await storage.saveState(const PilotState());

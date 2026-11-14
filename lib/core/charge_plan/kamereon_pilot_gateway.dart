@@ -8,9 +8,9 @@ import 'charge_pilot.dart';
 /// reconstruite depuis le stockage (JWT toujours rafraichi, comme au
 /// demarrage de l'app) : utilisable depuis un reveil, sans Riverpod.
 class KamereonPilotGateway implements PilotVehicleGateway {
-  KamereonPilotGateway._(AuthSession session, AuthRepository authRepository)
+  KamereonPilotGateway._(AuthSession session, AuthRepository authRepository, String? accountId)
       : _jwt = session.jwt,
-        _accountId = session.accountId {
+        _accountId = accountId ?? session.accountId {
     _client = KamereonClient(
       onUnauthorized: () async {
         final refreshed = await authRepository.refreshJwt();
@@ -26,14 +26,16 @@ class KamereonPilotGateway implements PilotVehicleGateway {
   late final KamereonClient _client;
 
   /// Null si l'utilisateur n'est pas connecte. [onKeysEvent] : notification
-  /// d'une mise a jour automatique des cles Renault.
+  /// d'une mise a jour automatique des cles Renault. [accountId] : compte du
+  /// vehicule pilote (null : compte de la session).
   static Future<KamereonPilotGateway?> open({
+    String? accountId,
     AuthRepository? authRepository,
     void Function(String title, String body)? onKeysEvent,
   }) async {
     final auth = authRepository ?? AuthRepository(onKeysEvent: onKeysEvent);
     final session = await auth.restoreSession();
-    return session == null ? null : KamereonPilotGateway._(session, auth);
+    return session == null ? null : KamereonPilotGateway._(session, auth, accountId);
   }
 
   @override

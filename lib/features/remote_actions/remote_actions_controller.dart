@@ -25,7 +25,7 @@ class RemoteActionsController extends Notifier<RemoteActionState> {
 
     state = RemoteActionState(pendingAction: action);
     try {
-      await repository.sendAction(vehicle.vin, action);
+      await repository.sendAction(vehicle, action);
       state = const RemoteActionState();
       // Relecture de l'etat (la voiture peut mettre un moment a le refleter).
       if (action == VehicleAction.hvacStart || action == VehicleAction.hvacStop) ref.invalidate(hvacStatusProvider);

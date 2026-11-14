@@ -7,6 +7,7 @@ class Vehicle {
     this.modelCode,
     this.nickname,
     this.deliveryDate,
+    this.accountId,
   });
 
   final String vin;
@@ -21,6 +22,20 @@ class Vehicle {
   /// Date de livraison "AAAA-MM-JJ", demandee par Renault pour lire la
   /// sante de la batterie (cf. `KamereonClient.fetchBatteryHealth`).
   final String? deliveryDate;
+
+  /// Compte Kamereon auquel le vehicule est rattache : un profil peut en
+  /// avoir plusieurs (null : compte de la session).
+  final String? accountId;
+
+  Vehicle withAccount(String accountId) => Vehicle(
+        vin: vin,
+        brand: brand,
+        model: model,
+        modelCode: modelCode,
+        nickname: nickname,
+        deliveryDate: deliveryDate,
+        accountId: accountId,
+      );
 
   factory Vehicle.fromJson(Map<String, dynamic> json) {
     return Vehicle(
