@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/models/vehicle.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/status_pill.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/charge_plan/charge_plan_providers.dart';
 import 'features/charge_plan/charge_plan_settings_screen.dart';
@@ -21,6 +22,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  /// Bandeau de demonstration masque par l'utilisateur (jusqu'a la sortie).
+  bool _demoBannerHidden = false;
+
   @override
   void initState() {
     super.initState();
@@ -105,10 +109,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: Column(
         children: [
-          if (demo) const _DemoBanner(),
+          if (demo && !_demoBannerHidden) _DemoBanner(onClose: () => setState(() => _demoBannerHidden = true)),
           // Pas de titre d'ecran : la barre d'onglets indique deja l'onglet
           // actif (libelle + surbrillance).
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Expanded(child: _tabs[tabIndex]),
         ],
       ),
@@ -134,30 +138,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// Rappel permanent du mode demonstration.
+/// Rappel du mode demonstration, masquable (croix) pour juger du rendu.
 class _DemoBanner extends StatelessWidget {
-  const _DemoBanner();
+  const _DemoBanner({required this.onClose});
+
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
       decoration: BoxDecoration(
         color: AppColors.surfaceHigh,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.accent),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.science_outlined, size: 18, color: AppColors.accent),
-          SizedBox(width: 10),
-          Expanded(
+          const Icon(Icons.science_outlined, size: 18, color: AppColors.accent),
+          const SizedBox(width: 10),
+          const Expanded(
             child: Text(
               'Démonstration : véhicules et données fictifs, rien n\'est envoyé.',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
+          ),
+          IconButton(
+            tooltip: 'Masquer',
+            icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+            visualDensity: VisualDensity.compact,
+            onPressed: onClose,
           ),
         ],
       ),
@@ -165,9 +177,9 @@ class _DemoBanner extends StatelessWidget {
   }
 }
 
-/// Selecteur de vehicule stylise en pilule, dans l'AppBar. Reste un simple
-/// libelle (pas de chevron/menu) quand il n'y a qu'un seul vehicule, pour ne
-/// pas laisser croire qu'on peut en changer.
+/// Titre de l'en-tete : nom du vehicule affiche. Avec plusieurs vehicules,
+/// un chevron et, au toucher, la liste des vehicules ([_VehicleSheet]) ;
+/// sinon un simple titre, pour ne pas laisser croire qu'on peut en changer.
 class _VehiclePicker extends StatelessWidget {
   const _VehiclePicker({required this.vehicles, required this.selected, required this.onSelected});
 
@@ -175,36 +187,94 @@ class _VehiclePicker extends StatelessWidget {
   final Vehicle? selected;
   final ValueChanged<Vehicle> onSelected;
 
+  static const _style = TextStyle(fontSize: 20, fontWeight: FontWeight.w800);
+
   @override
   Widget build(BuildContext context) {
     final name = selected?.displayName ?? 'MyAuto Pilot';
+    if (vehicles.length <= 1) return Text(name, style: _style);
 
-    if (vehicles.length <= 1) {
-      return Text(name, style: const TextStyle(fontWeight: FontWeight.w700));
-    }
-
-    return PopupMenuButton<String>(
-      color: AppColors.surfaceHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      onSelected: (vin) => onSelected(vehicles.firstWhere((v) => v.vin == vin)),
-      itemBuilder: (context) => vehicles
-          .map<PopupMenuEntry<String>>(
-            (v) => PopupMenuItem(value: v.vin, child: Text(v.displayName)),
-          )
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceHigh,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.border),
+    return Semantics(
+      button: true,
+      label: 'Changer de véhicule',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () async {
+          final chosen = await showModalBottomSheet<Vehicle>(
+            context: context,
+            backgroundColor: AppColors.surface,
+            builder: (_) => _VehicleSheet(vehicles: vehicles, selected: selected),
+          );
+          if (chosen != null) onSelected(chosen);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(name, style: _style, overflow: TextOverflow.ellipsis)),
+              const SizedBox(width: 2),
+              const Icon(Icons.expand_more_rounded, color: AppColors.textSecondary),
+            ],
+          ),
         ),
-        child: Row(
+      ),
+    );
+  }
+}
+
+/// Liste des vehicules du compte : celui affiche coche, celui que le
+/// pilotage de charge pilote signale.
+class _VehicleSheet extends ConsumerWidget {
+  const _VehicleSheet({required this.vehicles, required this.selected});
+
+  final List<Vehicle> vehicles;
+  final Vehicle? selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pilotedVin = ref.watch(chargePlanConfigProvider).value?.vehicleVin;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(name, style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textSecondary),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Véhicules', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
+            for (final vehicle in vehicles)
+              ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                leading: Icon(
+                  Icons.directions_car_outlined,
+                  color: vehicle.vin == selected?.vin ? AppColors.accent : AppColors.textSecondary,
+                ),
+                title: Text(vehicle.displayName, style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  [
+                    if (vehicle.nickname?.isNotEmpty == true) '${vehicle.brand} ${vehicle.model}',
+                    'VIN …${vehicle.vin.substring(vehicle.vin.length > 6 ? vehicle.vin.length - 6 : 0)}',
+                  ].join(' · '),
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (vehicle.vin == pilotedVin) const StatusPill(isActive: true, activeLabel: 'Piloté'),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 24,
+                      child: vehicle.vin == selected?.vin
+                          ? const Icon(Icons.check_rounded, color: AppColors.accent)
+                          : null,
+                    ),
+                  ],
+                ),
+                onTap: () => Navigator.pop(context, vehicle),
+              ),
           ],
         ),
       ),

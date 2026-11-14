@@ -44,10 +44,13 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       textTheme: textTheme,
       fontFamily: 'Manrope',
+      // En-tete detache du contenu : fond de carte et filet en bas.
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: Border(bottom: BorderSide(color: AppColors.border)),
         centerTitle: false,
       ),
       cardTheme: CardThemeData(
